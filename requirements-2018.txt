@@ -1,0 +1,10 @@
+# Historical pre-July-2018 stack from the blueprint (use with Python 3.6.6).
+# Note: the blueprint lists numba 0.39.0 as "June 2018"; 0.39.0 was actually
+# released on 2018-07-11, so 0.38.1 (2018-06) is pinned here.
+numpy==1.14.5        # 2018-06-12
+scipy==1.1.0         # 2018-05-05
+numba==0.38.1        # 2018-06
+llvmlite==0.23.2     # matches numba 0.38.1
+matplotlib==2.2.2    # 2018-03-17
+ipywidgets==7.2.1    # 2018-04
+pytest==3.6.3        # 2018-07-03 (test tooling only)

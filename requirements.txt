@@ -1,0 +1,6 @@
+# Runs on current versions (tested: see README). Minimums = pre-July-2018 releases.
+numpy>=1.14
+scipy>=1.1
+numba>=0.38
+matplotlib>=2.2
+pytest>=3.6

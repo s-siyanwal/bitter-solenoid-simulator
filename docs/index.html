@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0.5 T Bitter solenoid simulator - web demo</title>
+<style>
+ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f6f7f9;color:#1d232b}
+ header{background:#1d3557;color:#fff;padding:14px 22px} header h1{font-size:20px;margin:0} header p{margin:4px 0 0;font-size:13px;opacity:.85}
+ main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px}
+ .card{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.12);padding:14px}
+ label{display:block;font-size:13px;margin-top:9px} label span{float:right;font-variant-numeric:tabular-nums;color:#1d3557;font-weight:600}
+ input[type=range]{width:100%}
+ table{border-collapse:collapse;width:100%;font-size:13px} td{padding:3px 6px;border-bottom:1px solid #eee} td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+ .bad{color:#c1121f;font-weight:700} .ok{color:#2a9d8f;font-weight:700}
+ canvas{width:100%;height:260px;background:#fff} .plots{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+ .note{font-size:12px;color:#555} @media(max-width:900px){main{grid-template-columns:1fr}.plots{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>Real-time 0.5 T water-cooled copper Bitter solenoid</h1>
+<p>Static browser port of the analytic core of <code>bittersim</code>: Bitter J&nbsp;~&nbsp;1/r field (exact elliptic loop fields), Joule heating with &rho;(T), Dittus&ndash;Boelter cooling, pressure drop, hot spot, and the RF-only Swiss-roll metamaterial.</p></header>
+<main>
+<section class="card" id="controls"></section>
+<section>
+ <div class="card"><table id="out"></table></div>
+ <div class="plots" style="margin-top:16px">
+  <div class="card"><b>On-axis B<sub>z</sub>(z)</b><canvas id="cb" width="600" height="260"></canvas></div>
+  <div class="card"><b>Swiss roll &mu;<sub>eff</sub>(f) near Larmor (RF only; &mu;<sub>eff</sub>(0)=1)</b><canvas id="cm" width="600" height="260"></canvas></div>
+ </div>
+ <p class="note">Current is set automatically so that B<sub>z</sub>(0) = B0. Limits from the blueprint: T<sub>hot</sub> &le; 85 &deg;C, supply &le; 8 V, R1 &ge; 50 mm. Homogeneity &le; 100 ppm over the DSV, &Delta;p &le; 5 bar and Re &ge; 10<sup>4</sup> are project assumptions. The Swiss roll acts only at the ~21.3 MHz RF frequency and does not change B0 or its homogeneity. Numbers match the Python package to &lt;1e-9 (tested in CI).</p>
+</section>
+</main>
+<script src="bittersim.js"></script>
+<script>
+var S=[["R1","inner radius R1 [mm]",50,100,0.5,50,1e-3],["R2","outer radius R2 [mm]",100,300,1,300,1e-3],["L","length L [mm]",400,1500,1,1102,1e-3],
+["d_plate","plate thickness [mm]",0.5,6,0.05,5.99,1e-3],["D_hole","cooling hole D [mm]",1,6,0.05,5.9,1e-3],["pitch_factor","hole pitch / D",1.5,8,0.05,7.95,1],
+["v_flow","water velocity [m/s]",0.5,5,0.05,1.7,1],["T_in","inlet water T [C]",5,40,0.5,20,1],["dsv","DSV diameter [mm]",5,80,1,30,1e-3],["B0","target B0 [T]",0.05,0.6,0.01,0.5,1],
+["detune","Swiss-roll f0/fL",0.95,1.1,0.0005,1.015,1]];
+var ctl=document.getElementById("controls");ctl.innerHTML="<b>Design parameters</b>";
+S.forEach(function(s){var l=document.createElement("label");l.innerHTML=s[1]+"<span id='v_"+s[0]+"'></span><input type=range id='"+s[0]+"' min="+s[2]+" max="+s[3]+" step="+s[4]+" value="+s[5]+">";ctl.appendChild(l);});
+ctl.insertAdjacentHTML("beforeend","<p class=note>Defaults = optimiser result rounded (see README). Reset to the PDF initial guess: <button id=pdf>PDF guess</button></p>");
+document.getElementById("pdf").onclick=function(){var v={R1:50,R2:150,L:800,d_plate:2,D_hole:5,pitch_factor:2,v_flow:2.5};for(var k in v)document.getElementById(k).value=v[k];run();};
+function val(k){var s=S.filter(function(x){return x[0]==k})[0];return parseFloat(document.getElementById(k).value)*s[6];}
+function plot(c,xs,ys,col,clear,ylab){var g=c.getContext("2d"),W=c.width,H=c.height,m=40;if(clear){g.clearRect(0,0,W,H);}
+ var all=[].concat.apply([],ys),lo=Math.min.apply(null,all),hi=Math.max.apply(null,all);if(hi-lo<1e-12){hi+=1;lo-=1}
+ var x0=xs[0],x1=xs[xs.length-1];g.strokeStyle="#999";g.strokeRect(m,10,W-m-10,H-m);g.fillStyle="#333";g.font="11px sans-serif";
+ g.fillText(hi.toPrecision(4),2,16);g.fillText(lo.toPrecision(4),2,H-m+8);g.fillText(x0.toPrecision(3),m,H-m+22);g.fillText(x1.toPrecision(3),W-50,H-m+22);g.fillText(ylab,m+6,24);
+ ys.forEach(function(y,k){g.strokeStyle=col[k];g.beginPath();y.forEach(function(v,i){var X=m+(xs[i]-x0)/(x1-x0)*(W-m-10),Y=10+(hi-v)/(hi-lo)*(H-m);i?g.lineTo(X,Y):g.moveTo(X,Y)});g.stroke();});}
+function row(n,v,u,okv){return "<tr><td>"+n+"</td><td"+(okv===undefined?"":" class="+(okv?"ok":"bad"))+">"+v+" "+(u||"")+"</td></tr>";}
+function run(){S.forEach(function(s){document.getElementById("v_"+s[0]).textContent=document.getElementById(s[0]).value});
+ var p={};["R1","R2","L","d_plate","D_hole","pitch_factor","v_flow","T_in","dsv","B0"].forEach(function(k){p[k]=val(k)});
+ if(p.R2<=p.R1+0.01)p.R2=p.R1+0.01;
+ var r=BitterSim.evaluate(p),f=function(x,n){return x.toFixed(n)};
+ document.getElementById("out").innerHTML=row("current I",f(r.I,1),"A")+row("supply voltage",f(r.V,3),"V",r.V<=8)+row("turns (plates)",f(r.nTurns,1))+row("ampere-turns",f(r.NI,0),"A")+
+ row("electrical power",f(r.P/1e3,3),"kW")+row("pump power",f(r.Ppump,1),"W")+row("homogeneity over DSV",f(r.ppm,2),"ppm",r.ppm<=100)+row("B0 (numerical, loops)",f(r.B0num,6),"T")+
+ row("cooling holes",r.nHoles)+row("flow",f(r.flowLmin,1),"L/min")+row("Reynolds",f(r.Re,0),"",r.Re>=1e4)+row("h (Dittus-Boelter / Gnielinski)",f(r.h,0)+" / "+f(r.hg,0),"W/m²K")+
+ row("pressure drop",f(r.dp/1e3,2),"kPa",r.dp<=5e5)+row("mixed outlet water",f(r.Tout,2),"°C")+row("hot-spot copper T",f(r.Thot,2),"°C",r.Thot<=85)+
+ row("J_cu at R1",f(r.Jin,3),"A/mm²")+row("hoop stress bound",f(r.hoop,3),"MPa")+row("copper mass",f(r.mass,0),"kg")+row("Larmor frequency",f(r.fL,4),"MHz");
+ var zs=[],bz=[];for(var i=0;i<=200;i++){var z=-p.L+2*p.L*i/200;zs.push(z*100);bz.push(BitterSim.bitterAxis(p.R1,p.R2,p.L,r.C,z));}
+ plot(document.getElementById("cb"),zs,[bz],["#1d3557"],true,"Bz [T] vs z [cm]");
+ var fL=r.fL*1e6,sr=BitterSim.swissRoll(fL*val("detune")),fs=[],re=[],im=[];for(i=0;i<=300;i++){var ff=fL*(0.97+0.06*i/300);fs.push(ff/1e6);var m=sr.mu(ff);re.push(m[0]);im.push(m[1]);}
+ plot(document.getElementById("cm"),fs,[re,im],["#e63946","#457b9d"],true,"mu' (red), mu'' (blue) vs f [MHz]");
+ var mL=sr.mu(fL);document.getElementById("out").innerHTML+=row("Swiss roll μ_eff at f_L",f(mL[0],2)+" + "+f(mL[1],2)+"j")+row("heuristic SNR gain (illustrative)",f(BitterSim.snrGain(mL),3));}
+S.forEach(function(s){document.getElementById(s[0]).addEventListener("input",run)});run();
+</script>
+</body>
+</html>

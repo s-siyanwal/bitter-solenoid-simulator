@@ -1,0 +1,27 @@
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  current-stack:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q tests
+  legacy-2018-stack:
+    # Python 3.6.6 + numpy 1.14.5 / scipy 1.1.0 / numba 0.38.1 / matplotlib 2.2.2
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: pytest inside python:3.6.6 container
+        run: |
+          docker run --rm -v "$PWD":/w -w /w python:3.6.6 \
+            bash -c "pip install -q -r requirements-2018.txt && python -m pytest -q tests"
