@@ -61,3 +61,42 @@ def test_js_rejects_unknown_material():
     out = _node(js)
     assert "di_water" in out["msg"]
     assert "unobtainium" in out["msg"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_js_presets_match_printed_precision():
+    js = (
+        "const b=require(%r);"
+        "const a=b.evaluate(b.presets().pdf_initial_guess);"
+        "const c=b.evaluate(b.presets().seed1_optimum);"
+        "console.log(JSON.stringify({pdfV:a.V,pdfP:a.P/1e3,pdfT:a.Thot,pdfPpm:a.ppm,"
+        "oV:c.V,oP:c.P/1e3,oT:c.Thot,oPpm:c.ppm,oFlow:c.flowLmin}));"
+    ) % JS
+    out = _node(js)
+    assert round(out["pdfV"] + 1e-12, 3) == 19.537
+    assert round(out["pdfP"] + 1e-12, 3) == 17.974
+    assert round(out["pdfT"] + 1e-12, 3) == 21.153
+    assert round(out["pdfPpm"] + 1e-12, 2) == 154.15
+    assert round(out["oV"] + 1e-12, 3) == 4.543
+    assert round(out["oP"] + 1e-12, 3) == 11.704
+    assert round(out["oT"] + 1e-12, 3) == 25.946
+    assert round(out["oPpm"] + 1e-12, 2) == 99.95
+    assert round(out["oFlow"] + 1e-12, 1) == 321.8
+
+
+def test_demo_page_labels():
+    html = open(os.path.join(DOCS, "index.html")).read()
+    for needle in (
+        "Mesoscopic emulation, not molecular dynamics",
+        "PDF initial guess",
+        "seed-1 optimum",
+        "PROJECT_REPORT.md",
+        "csch",
+        "cfield",
+        "chist",
+        "clang",
+        "cspark",
+        "Not Florida-Bitter",
+        "Not an MRI noise floor",
+    ):
+        assert needle in html, needle
