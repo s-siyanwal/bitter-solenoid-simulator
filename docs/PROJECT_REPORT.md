@@ -99,7 +99,7 @@ Algorithms: no change to the continuum optimum or to the Python Monte Carlo. Bro
 Numbers: unchanged from the tables above.
 Tests: run in the same commit as this entry; see the changelog line appended by the test run if the count is repeated there.
 
-Pages URL: not yet recorded in this file. The publish step writes it here when GitHub Pages is actually configured.
+Pages URL, once `main` is public and Pages is set to `/docs`: https://s-siyanwal.github.io/bitter-solenoid-simulator/
 
 ### 2026-10-02
 
