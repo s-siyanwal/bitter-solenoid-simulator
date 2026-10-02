@@ -7,39 +7,101 @@
 <style>
  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f6f7f9;color:#1d232b}
  header{background:#1d3557;color:#fff;padding:14px 22px} header h1{font-size:20px;margin:0} header p{margin:4px 0 0;font-size:13px;opacity:.85}
- main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px}
- .card{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.12);padding:14px}
+ main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px}
+ .card{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.12);padding:14px;margin-bottom:16px}
  label{display:block;font-size:13px;margin-top:9px} label span{float:right;font-variant-numeric:tabular-nums;color:#1d3557;font-weight:600}
- input[type=range]{width:100%}
+ input[type=range],select,input[type=number],input[type=text]{width:100%;box-sizing:border-box}
  table{border-collapse:collapse;width:100%;font-size:13px} td{padding:3px 6px;border-bottom:1px solid #eee} td:last-child{text-align:right;font-variant-numeric:tabular-nums}
- .bad{color:#c1121f;font-weight:700} .ok{color:#2a9d8f;font-weight:700}
+ .bad{color:#c1121f;font-weight:700} .ok{color:#2a9d8f;font-weight:700} .warn{color:#b86e00;font-weight:700}
  canvas{width:100%;height:260px;background:#fff} .plots{display:grid;grid-template-columns:1fr 1fr;gap:16px}
- .note{font-size:12px;color:#555} @media(max-width:900px){main{grid-template-columns:1fr}.plots{grid-template-columns:1fr}}
+ .note{font-size:12px;color:#555} .banner{background:#fff3cd;border:1px solid #e6d38a;padding:8px 10px;border-radius:6px;font-size:13px}
+ .chips span{display:inline-block;margin:3px 4px 0 0;padding:2px 8px;border-radius:99px;font-size:12px;background:#eef2f5}
+ .chips .ok{background:#e5f6f3} .chips .warning{background:#fff4d6} .chips .violation{background:#fde8ea}
+ button{margin-top:8px;padding:6px 10px}
+ @media(max-width:900px){main{grid-template-columns:1fr}.plots{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header><h1>Real-time 0.5 T water-cooled copper Bitter solenoid</h1>
-<p>Static browser port of the analytic core of <code>bittersim</code>: Bitter J&nbsp;~&nbsp;1/r field (exact elliptic loop fields), Joule heating with &rho;(T), Dittus&ndash;Boelter cooling, pressure drop, hot spot, and the RF-only Swiss-roll metamaterial.</p></header>
+<p>Continuum analytic core, plus a separate mesoscopic emulation. Mesoscopic emulation, not molecular dynamics.</p></header>
 <main>
-<section class="card" id="controls"></section>
 <section>
- <div class="card"><table id="out"></table></div>
- <div class="plots" style="margin-top:16px">
-  <div class="card"><b>On-axis B<sub>z</sub>(z)</b><canvas id="cb" width="600" height="260"></canvas></div>
-  <div class="card"><b>Swiss roll &mu;<sub>eff</sub>(f) near Larmor (RF only; &mu;<sub>eff</sub>(0)=1)</b><canvas id="cm" width="600" height="260"></canvas></div>
+ <div class="card" id="controls"></div>
+ <div class="card">
+  <b>Configuration</b>
+  <p class="note">Catalog allow-list only. Slider and typed values clamp to the catalog bounds and say so.</p>
+  <label>conductor <select id="conductor"></select></label>
+  <label>coolant <select id="coolant"></select></label>
+  <label>insulator <select id="insulator"></select></label>
+  <label>bore wall <select id="housing"></select></label>
+  <label>temper <select id="temper"><option>hard</option><option>annealed</option></select></label>
+  <label>aeration <select id="aeration"><option>deaerated</option><option>aerated</option></select></label>
+  <label>flow driver <select id="driver"><option value="v">water velocity</option><option value="lpm">total L/min</option></select></label>
+  <label>total flow L/min <input id="lpm" type="number" value="322" min="1" max="4000" step="1"></label>
+  <label>ambient C <input id="Tamb" type="number" value="20" min="-20" max="45" step="0.5"></label>
+  <label>site pressure kPa <input id="psite" type="number" value="101.325" min="70" max="200" step="0.1"></label>
+  <label>try a material id <input id="tryId" type="text" placeholder="ofhc_cu"></label>
+  <button id="tryBtn" type="button">Check id</button>
+  <p id="clampNote" class="note"></p>
+  <p id="matMsg" class="note"></p>
  </div>
- <p class="note">Current is set automatically so that B<sub>z</sub>(0) = B0. Limits from the blueprint: T<sub>hot</sub> &le; 85 &deg;C, supply &le; 8 V, R1 &ge; 50 mm. Homogeneity &le; 100 ppm over the DSV, &Delta;p &le; 5 bar and Re &ge; 10<sup>4</sup> are project assumptions. The Swiss roll acts only at the ~21.3 MHz RF frequency and does not change B0 or its homogeneity. Numbers match the Python package to &lt;1e-9 (tested in CI).</p>
+ <div class="card">
+  <b>Emulation</b>
+  <p class="banner">Mesoscopic emulation, not molecular dynamics. Seeded subset, cap 300. The Python Monte Carlo is the reference.</p>
+  <label>seed <input id="seed" type="number" value="1" step="1"></label>
+  <label>realizations <input id="nreal" type="number" value="40" min="1" max="300" step="1"></label>
+  <label>bandwidth Hz lo / hi
+    <input id="flo" type="number" value="1"> <input id="fhi" type="number" value="10000"></label>
+  <label>contact median ohm / interface <input id="rcmed" type="number" value="1e-6" step="1e-7"></label>
+  <label><input id="kohler" type="checkbox" checked style="width:auto"> Kohler correction (approximate, emulation only)</label>
+  <label><input id="hooge" type="checkbox" style="width:auto"> Hooge 1/f (speculative, default off, not applied)</label>
+  <button id="runEmu" type="button">Run compare</button>
+  <p id="emuNote" class="note"></p>
+ </div>
+</section>
+<section>
+ <div class="card banner" id="notThis">
+  <b>What this is not.</b>
+  Not molecular dynamics of the 2575 kg magnet. Not an MRI SNR measurement (the Swiss-roll gain is a heuristic). Not a certified magnet design. Not a Florida-Bitter plate drawing. Round graded holes and a uniform rho(T) are continuum assumptions. Contact resistance is sampled only in the emulation.
+ </div>
+ <div class="card"><b>1. Continuum simulation</b><table id="out"></table></div>
+ <div class="card"><b>4. Side by side</b>
+  <p class="note">Simulation point versus emulation median and p05–p95. ppm is the continuum loop value; the browser subset does not resample it.</p>
+  <table id="side"></table></div>
+ <div class="card"><b>5. Constraint chips</b><div id="chips" class="chips"></div></div>
+ <div class="plots">
+  <div class="card"><b>On-axis B<sub>z</sub>(z)</b><canvas id="cb" width="600" height="260"></canvas></div>
+  <div class="card"><b>Swiss roll &mu;<sub>eff</sub>(f) near Larmor (RF only; &mu;<sub>eff</sub>(0)=1). Heuristic SNR, not a measurement.</b><canvas id="cm" width="600" height="260"></canvas></div>
+ </div>
+ <p class="note">Current is set so that B<sub>z</sub>(0) = B0 in the continuum model. Limits: T<sub>hot</sub> &le; 85 &deg;C, supply &le; 8 V, R1 &ge; 50 mm, homogeneity &le; 100 ppm, &Delta;p &le; 5 bar, Re &ge; 10<sup>4</sup>. Numbers of the analytic core match Python to &lt;1e-9.</p>
 </section>
 </main>
 <script src="bittersim.js"></script>
 <script>
 var S=[["R1","inner radius R1 [mm]",50,100,0.5,50,1e-3],["R2","outer radius R2 [mm]",100,300,1,300,1e-3],["L","length L [mm]",400,1500,1,1102,1e-3],
 ["d_plate","plate thickness [mm]",0.5,6,0.05,5.99,1e-3],["D_hole","cooling hole D [mm]",1,6,0.05,5.9,1e-3],["pitch_factor","hole pitch / D",1.5,8,0.05,7.95,1],
-["v_flow","water velocity [m/s]",0.5,5,0.05,1.7,1],["T_in","inlet water T [C]",5,40,0.5,20,1],["dsv","DSV diameter [mm]",5,80,1,30,1e-3],["B0","target B0 [T]",0.05,0.6,0.01,0.5,1],
+["v_flow","water velocity [m/s]",0.1,16,0.05,1.7,1],["T_in","inlet water T [C]",1,95,0.5,20,1],["dsv","DSV diameter [mm]",5,80,1,30,1e-3],["B0","target B0 [T]",0.05,0.6,0.01,0.5,1],
 ["detune","Swiss-roll f0/fL",0.95,1.1,0.0005,1.015,1]];
-var ctl=document.getElementById("controls");ctl.innerHTML="<b>Design parameters</b>";
+var ctl=document.getElementById("controls");ctl.innerHTML="<b>1. Continuum simulation</b><p class=note>Existing sliders. Every change recomputes the continuum result immediately.</p>";
 S.forEach(function(s){var l=document.createElement("label");l.innerHTML=s[1]+"<span id='v_"+s[0]+"'></span><input type=range id='"+s[0]+"' min="+s[2]+" max="+s[3]+" step="+s[4]+" value="+s[5]+">";ctl.appendChild(l);});
-ctl.insertAdjacentHTML("beforeend","<p class=note>Defaults = optimiser result rounded (see README). Reset to the PDF initial guess: <button id=pdf>PDF guess</button></p>");
+ctl.insertAdjacentHTML("beforeend","<p class=note>Defaults = optimiser result rounded (see README). Reset to the PDF initial guess: <button id=pdf type=button>PDF guess</button></p>");
+var ids=BitterSim.catalogIds();
+["conductor","coolant","insulator","housing"].forEach(function(k){
+  var sel=document.getElementById(k);
+  ids[k].forEach(function(id){var o=document.createElement("option");o.value=id;o.textContent=id;sel.appendChild(o);});
+});
+document.getElementById("conductor").value="ofhc_cu";
+document.getElementById("coolant").value="di_water";
+document.getElementById("insulator").value="polyimide_kapton";
+document.getElementById("housing").value="ss304";
+var lastEmu=null, clampMsg="";
+function clampNum(el, lo, hi, name){
+  var x=parseFloat(el.value);
+  if(isNaN(x)){el.value=lo; clampMsg=name+" was not a number and was set to "+lo; return lo;}
+  if(x<lo){el.value=lo; clampMsg=name+" clamped to catalog minimum "+lo; return lo;}
+  if(x>hi){el.value=hi; clampMsg=name+" clamped to catalog maximum "+hi; return hi;}
+  return x;
+}
 document.getElementById("pdf").onclick=function(){var v={R1:50,R2:150,L:800,d_plate:2,D_hole:5,pitch_factor:2,v_flow:2.5};for(var k in v)document.getElementById(k).value=v[k];run();};
 function val(k){var s=S.filter(function(x){return x[0]==k})[0];return parseFloat(document.getElementById(k).value)*s[6];}
 function plot(c,xs,ys,col,clear,ylab){var g=c.getContext("2d"),W=c.width,H=c.height,m=40;if(clear){g.clearRect(0,0,W,H);}
@@ -48,11 +110,83 @@ function plot(c,xs,ys,col,clear,ylab){var g=c.getContext("2d"),W=c.width,H=c.hei
  g.fillText(hi.toPrecision(4),2,16);g.fillText(lo.toPrecision(4),2,H-m+8);g.fillText(x0.toPrecision(3),m,H-m+22);g.fillText(x1.toPrecision(3),W-50,H-m+22);g.fillText(ylab,m+6,24);
  ys.forEach(function(y,k){g.strokeStyle=col[k];g.beginPath();y.forEach(function(v,i){var X=m+(xs[i]-x0)/(x1-x0)*(W-m-10),Y=10+(hi-v)/(hi-lo)*(H-m);i?g.lineTo(X,Y):g.moveTo(X,Y)});g.stroke();});}
 function row(n,v,u,okv){return "<tr><td>"+n+"</td><td"+(okv===undefined?"":" class="+(okv?"ok":"bad"))+">"+v+" "+(u||"")+"</td></tr>";}
+function designParams(){
+  clampMsg="";
+  var p={};["R1","R2","L","d_plate","D_hole","pitch_factor","v_flow","T_in","dsv","B0"].forEach(function(k){p[k]=val(k)});
+  if(p.R2<=p.R1+0.01){p.R2=p.R1+0.01; clampMsg="R2 clamped above R1";}
+  p.conductor=document.getElementById("conductor").value;
+  p.coolant=document.getElementById("coolant").value;
+  p.insulator=document.getElementById("insulator").value;
+  p.housing=document.getElementById("housing").value;
+  var Tamb=clampNum(document.getElementById("Tamb"),-20,45,"ambient");
+  var pkPa=clampNum(document.getElementById("psite"),70,200,"site pressure");
+  p.T_amb=Tamb; p.p_site=pkPa*1000;
+  if(document.getElementById("driver").value==="lpm"){
+    var lpm=clampNum(document.getElementById("lpm"),1,4000,"total flow");
+    var guess=BitterSim.evaluate(Object.assign({},p,{_fast:true}));
+    var area=Math.PI*p.D_hole*p.D_hole/4;
+    var v=lpm/60000/(guess.nHoles*area);
+    if(v<0.1||v>16){clampMsg=(clampMsg?clampMsg+"; ":"")+"velocity from L/min clamped to the slider range";}
+    v=Math.min(16, Math.max(0.1, v));
+    document.getElementById("v_flow").value=v.toFixed(2);
+    document.getElementById("v_v_flow").textContent=document.getElementById("v_flow").value;
+    p.v_flow=v;
+  } else {
+    var back=p.v_flow*Math.PI*p.D_hole*p.D_hole/4;
+    var fast=BitterSim.evaluate(Object.assign({},p,{_fast:true}));
+    document.getElementById("lpm").value=(fast.flowLmin).toFixed(1);
+  }
+  document.getElementById("clampNote").textContent=clampMsg;
+  return p;
+}
+function chip(name, value, limit, status){
+  return "<span class='"+status+"'>"+status+" "+name+" "+value+" (limit "+limit+")</span>";
+}
+function constraints(r, p){
+  var tsat=BitterSim.tsatC(p.p_site);
+  var html="";
+  function le(name,val,lim,warn){var s=val>lim?"violation":(val>=warn?"warning":"ok"); html+=chip(name,val.toPrecision(4),lim,s);} 
+  function ge(name,val,lim,warn){var s=val<lim?"violation":(val<=warn?"warning":"ok"); html+=chip(name,val.toPrecision(4),lim,s);} 
+  le("T_hot", r.Thot, 85, 70); le("V", r.V, 8, 6); le("ppm", r.ppm, 100, 90);
+  le("dp_Pa", r.dp, 5e5, 4e5); ge("Re", r.Re, 1e4, 1.2e4); ge("R1", r.d.R1, 0.05, 0.052);
+  le("Tout", r.Tout, tsat-10, tsat-15);
+  if(r.d.v_flow<0.5) html+=chip("velocity", r.d.v_flow.toFixed(2), 0.5, "warning");
+  else if(document.getElementById("aeration").value==="aerated" && r.d.v_flow>8) html+=chip("erosion", r.d.v_flow.toFixed(2), 8, "warning");
+  else if(r.d.v_flow>15) html+=chip("velocity", r.d.v_flow.toFixed(2), 15, "violation");
+  else html+=chip("velocity", r.d.v_flow.toFixed(2), 15, "ok");
+  document.getElementById("chips").innerHTML=html;
+}
+function side(r, p){
+  var cond=BitterSim.conductorSpec(p.conductor);
+  var rho=cond.rho20*(1+cond.alpha*(r.Tcu-20));
+  var d=BitterSim.drude({J:r.Jin*1e6, rho:rho, n:cond.n, B:p.B0, v_fermi:cond.vF, kohler:false});
+  var j=BitterSim.johnson({T_C:r.Tcu, R:r.V/r.I, f_lo:parseFloat(document.getElementById("flo").value)||1, f_hi:parseFloat(document.getElementById("fhi").value)||10000});
+  function line(name, sim, emu){return "<tr><td>"+name+"</td><td>"+sim+"</td><td>"+(emu||"—")+"</td></tr>";}
+  var e=lastEmu;
+  function band(key, digits){
+    if(!e) return "";
+    var q=e.percentiles[key];
+    return q.p50.toExponential(3)+" ["+q.p05.toExponential(3)+" … "+q.p95.toExponential(3)+"]";
+  }
+  document.getElementById("side").innerHTML="<tr><td></td><td>simulation</td><td>emulation p50 [p05 … p95]</td></tr>"+
+    line("B0 T", r.B0num.toFixed(6), e?e.percentiles.B0.p50.toFixed(6)+" ["+e.percentiles.B0.p05.toFixed(6)+" … "+e.percentiles.B0.p95.toFixed(6)+"]":"")+
+    line("V V", r.V.toFixed(3), e?e.percentiles.V.p50.toFixed(3)+" ["+e.percentiles.V.p05.toFixed(3)+" … "+e.percentiles.V.p95.toFixed(3)+"]":"")+
+    line("P kW", (r.P/1e3).toFixed(3), e?(e.percentiles.P.p50/1e3).toFixed(3)+" ["+(e.percentiles.P.p05/1e3).toFixed(3)+" … "+(e.percentiles.P.p95/1e3).toFixed(3)+"]":"")+
+    line("T_hot C", r.Thot.toFixed(2), e?e.percentiles.T_hot.p50.toFixed(2)+" ["+e.percentiles.T_hot.p05.toFixed(2)+" … "+e.percentiles.T_hot.p95.toFixed(2)+"]":"")+
+    line("ppm", r.ppm.toFixed(2), e?r.ppm.toFixed(2)+" (continuum; browser does not resample)":"")+
+    line("drift m/s", d.v_d.toExponential(3), e?band("v_d"):"")+
+    line("mfp m", d.mean_free_path.toExponential(3), e?band("mfp"):"")+
+    line("Johnson Vrms", j.V_rms.toExponential(3), e?band("V_johnson"):"");
+}
 function run(){S.forEach(function(s){document.getElementById("v_"+s[0]).textContent=document.getElementById(s[0]).value});
- var p={};["R1","R2","L","d_plate","D_hole","pitch_factor","v_flow","T_in","dsv","B0"].forEach(function(k){p[k]=val(k)});
- if(p.R2<=p.R1+0.01)p.R2=p.R1+0.01;
+ var p=designParams();
  var r=BitterSim.evaluate(p),f=function(x,n){return x.toFixed(n)};
- document.getElementById("out").innerHTML=row("current I",f(r.I,1),"A")+row("supply voltage",f(r.V,3),"V",r.V<=8)+row("turns (plates)",f(r.nTurns,1))+row("ampere-turns",f(r.NI,0),"A")+
+ var cool=document.getElementById("coolant").value;
+ var banner="";
+ if(cool==="galden_ht135") banner="<tr><td colspan=2 class=bad>Dielectric coolant, h will be lower. The continuum core still uses water correlations; the catalog warning is the point of this banner.</td></tr>";
+ if(cool==="water_glycol_30") banner="<tr><td colspan=2 class=warn>Water-glycol is conductive, not a dielectric, and h is lower than water.</td></tr>";
+ if(p.conductor==="al_1350") banner+="<tr><td colspan=2 class=bad>Al 1350 is allowed and not recommended for this Bitter stack.</td></tr>";
+ document.getElementById("out").innerHTML=banner+row("current I",f(r.I,1),"A")+row("supply voltage",f(r.V,3),"V",r.V<=8)+row("turns (plates)",f(r.nTurns,1))+row("ampere-turns",f(r.NI,0),"A")+
  row("electrical power",f(r.P/1e3,3),"kW")+row("pump power",f(r.Ppump,1),"W")+row("homogeneity over DSV",f(r.ppm,2),"ppm",r.ppm<=100)+row("B0 (numerical, loops)",f(r.B0num,6),"T")+
  row("cooling holes",r.nHoles)+row("flow",f(r.flowLmin,1),"L/min")+row("Reynolds",f(r.Re,0),"",r.Re>=1e4)+row("h (Dittus-Boelter / Gnielinski)",f(r.h,0)+" / "+f(r.hg,0),"W/m²K")+
  row("pressure drop",f(r.dp/1e3,2),"kPa",r.dp<=5e5)+row("mixed outlet water",f(r.Tout,2),"°C")+row("hot-spot copper T",f(r.Thot,2),"°C",r.Thot<=85)+
@@ -61,8 +195,45 @@ function run(){S.forEach(function(s){document.getElementById("v_"+s[0]).textCont
  plot(document.getElementById("cb"),zs,[bz],["#1d3557"],true,"Bz [T] vs z [cm]");
  var fL=r.fL*1e6,sr=BitterSim.swissRoll(fL*val("detune")),fs=[],re=[],im=[];for(i=0;i<=300;i++){var ff=fL*(0.97+0.06*i/300);fs.push(ff/1e6);var m=sr.mu(ff);re.push(m[0]);im.push(m[1]);}
  plot(document.getElementById("cm"),fs,[re,im],["#e63946","#457b9d"],true,"mu' (red), mu'' (blue) vs f [MHz]");
- var mL=sr.mu(fL);document.getElementById("out").innerHTML+=row("Swiss roll μ_eff at f_L",f(mL[0],2)+" + "+f(mL[1],2)+"j")+row("heuristic SNR gain (illustrative)",f(BitterSim.snrGain(mL),3));}
-S.forEach(function(s){document.getElementById(s[0]).addEventListener("input",run)});run();
+ var mL=sr.mu(fL);document.getElementById("out").innerHTML+=row("Swiss roll μ_eff at f_L",f(mL[0],2)+" + "+f(mL[1],2)+"j")+row("heuristic SNR gain (illustrative)",f(BitterSim.snrGain(mL),3));
+ constraints(r,p); side(r,p);
+}
+document.getElementById("runEmu").onclick=function(){
+  var p=designParams();
+  var n=clampNum(document.getElementById("nreal"),1,300,"realizations");
+  var seed=parseInt(document.getElementById("seed").value,10);
+  if(isNaN(seed)){document.getElementById("emuNote").textContent="Seed is required."; return;}
+  try{
+    ["conductor","coolant","insulator","housing"].forEach(function(k){BitterSim.requireMaterial(k, document.getElementById(k).value);});
+    lastEmu=BitterSim.emulateFast(p,{realizations:n, seed:seed,
+      f_lo:parseFloat(document.getElementById("flo").value), f_hi:parseFloat(document.getElementById("fhi").value),
+      contact_median:parseFloat(document.getElementById("rcmed").value), kohler:document.getElementById("kohler").checked});
+    var hooge=document.getElementById("hooge").checked;
+    document.getElementById("emuNote").textContent=lastEmu.label+". "+lastEmu.note+(hooge?" Hooge 1/f stays off in this subset and is labeled speculative.":"");
+    run();
+  }catch(err){document.getElementById("emuNote").textContent=String(err.message||err);}
+};
+document.getElementById("tryBtn").onclick=function(){
+  var id=document.getElementById("tryId").value.trim();
+  var found=null, kind=null;
+  ["conductor","coolant","insulator","housing"].forEach(function(k){
+    if(BitterSim.catalogIds()[k].indexOf(id)>=0){found=id; kind=k;}
+  });
+  var msg=document.getElementById("matMsg");
+  if(!found){
+    try{BitterSim.requireMaterial("conductor", id);}catch(e){msg.textContent=e.message; msg.className="note bad";}
+    return;
+  }
+  document.getElementById(kind).value=found;
+  msg.textContent="Accepted catalog id "+found+" as "+kind+".";
+  msg.className="note ok";
+  run();
+};
+S.forEach(function(s){document.getElementById(s[0]).addEventListener("input",run)});
+["conductor","coolant","insulator","housing","temper","aeration","driver"].forEach(function(id){
+  document.getElementById(id).addEventListener("change",run);
+});
+run();
 </script>
 </body>
 </html>

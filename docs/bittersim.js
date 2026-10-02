@@ -117,7 +117,9 @@
       dTw = ql * L / (fl.mdot * CPW); dTf = ql / Awet / fl.h; dTc = annulusDT(rh * Math.pow(C / (lam * R1), 2), a, b, KCU);
       var Tn = d.T_in + dTw + dTf + dTc, dn = Math.abs(Tn - Th) < 1e-10; Th = Tn; if (dn) break;
     }
-    var Qtot = fl.Q * nHoles, loops = bitterLoops(R1, R2, L, C), hom = homogeneity(loops, d.dsv / 2);
+    var Qtot = fl.Q * nHoles, loops, hom;
+    if (d._fast) { hom = [NaN, d.B0]; loops = []; }
+    else { loops = bitterLoops(R1, R2, L, C); hom = homogeneity(loops, d.dsv / 2); }
     return { d: d, C: C, NI: NI, I: I, nTurns: nT, V: V, P: P, Ppump: fl.dp * Qtot / d.eta_pump, Re: fl.Re, h: fl.h, hg: fl.hg,
       dp: fl.dp, flowLmin: Qtot * 60000, nHoles: nHoles, Tout: d.T_in + dTmix, Thot: Th, Tcu: Tcu, dTw: dTw, dTf: dTf, dTc: dTc,
       ppm: hom[0], B0num: hom[1], Jin: C / (lam * R1) / 1e6, hoop: C * d.B0 / lam / 1e6, lam: lam, loops: loops,
@@ -141,7 +143,186 @@
     var eta = mu[0] > 0 ? 1 / (1 + (1 / eta0 - 1) / mu[0]) : 0;
     return (eta / eta0) / Math.sqrt(1 + kappa * Math.abs(mu[1]));
   }
+// Appended emulation API. The continuum evaluate() above is unchanged.
+  var E_CHARGE = 1.60217662e-19, M_E = 9.1093837e-31, K_B = 1.38064852e-23;
+  var LABEL = "mesoscopic emulation, not molecular dynamics";
+
+  function coolantProps(id, T) {
+    var ids = ["di_water", "galden_ht135", "water_glycol_30"];
+    if (ids.indexOf(id) < 0) throw new Error("unknown coolant '" + id + "'; catalog ids: " + ids.join(", "));
+    var w = water(T);
+    if (id === "di_water") return { rho: w.rho, mu: w.mu, k: w.k, cp: w.cp, Pr: w.Pr };
+    if (id === "water_glycol_30") {
+      var rho = w.rho * 1.04, mu = w.mu * 2.4, k = w.k * 0.80, cp = w.cp * 0.90;
+      return { rho: rho, mu: mu, k: k, cp: cp, Pr: cp * mu / k };
+    }
+    var muG = 1.72e-3 * Math.pow(10, 80 * (1 / (T + 273.15) - 1 / 298.15));
+    return { rho: 1720, mu: muG, k: 0.065, cp: 1000, Pr: 1000 * muG / 0.065 };
+  }
+
+  function catalogIds() {
+    return {
+      conductor: ["ofhc_cu", "cu_ag", "cu_zr", "al_1350"],
+      coolant: ["di_water", "water_glycol_30", "galden_ht135"],
+      insulator: ["polyimide_kapton", "mica", "ptfe", "g10"],
+      housing: ["ss304", "g10_bore", "aluminum_6061"]
+    };
+  }
+
+  function requireMaterial(kind, id) {
+    var ids = catalogIds()[kind];
+    if (!ids || ids.indexOf(id) < 0) {
+      throw new Error("unknown " + kind + " '" + id + "'; catalog ids: " + (ids ? ids.join(", ") : "none"));
+    }
+    return id;
+  }
+
+  function conductorSpec(id) {
+    requireMaterial("conductor", id);
+    var table = {
+      ofhc_cu: { rho20: 1.68e-8, alpha: 3.93e-3, k: 390, n: 8.47e28, vF: 1.57e6, yA: 70e6, yH: 250e6 },
+      cu_ag: { rho20: 1.68e-8 * 1.08, alpha: 3.93e-3, k: 370, n: 8.45e28, vF: 1.57e6, yA: 150e6, yH: 340e6 },
+      cu_zr: { rho20: 1.68e-8 * 1.15, alpha: 3.90e-3, k: 350, n: 8.40e28, vF: 1.55e6, yA: 200e6, yH: 420e6 },
+      al_1350: { rho20: 2.82e-8, alpha: 4.03e-3, k: 230, n: 6.02e28, vF: 2.02e6, yA: 28e6, yH: 80e6 }
+    };
+    return table[id];
+  }
+
+  function drude(o) {
+    var J = o.J, rho = o.rho, n = o.n, B = o.B, vF = o.v_fermi || 1.57e6;
+    var kohler = !!o.kohler, aK = o.kohler_a == null ? 1 : o.kohler_a;
+    var tau = M_E / (n * E_CHARGE * E_CHARGE * rho);
+    var v_d = J / (n * E_CHARGE);
+    var hall = (E_CHARGE * B / M_E) * tau;
+    var frac = kohler ? aK * hall * hall : 0;
+    var JE = J * J * rho * (1 + frac);
+    var q = rho * J * J;
+    return {
+      tau: tau, v_d: v_d, mean_free_path: vF * tau, omega_c_tau: hall,
+      kohler_drho_over_rho: frac, J_dot_E: JE, q_continuum: q,
+      label: LABEL, model_grade: kohler ? "approximate" : "established"
+    };
+  }
+
+  function johnson(o) {
+    var TK = o.T_C + 273.15, df = o.f_hi - o.f_lo;
+    var Sv = 4 * K_B * TK * o.R;
+    return {
+      S_v: Sv, V_rms: Math.sqrt(Sv * df),
+      note: "Supply-sense Johnson voltage. Coil Johnson noise is not the MRI noise floor.",
+      model_grade: "established"
+    };
+  }
+
+  function tsatC(pPa) {
+    var pBar = pPa / 1e5;
+    return 1730.63 / (5.1962 - Math.log10(pBar)) - 233.426;
+  }
+
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function gaussRand(rng) {
+    var u = Math.max(rng(), 1e-12), v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function percentile(arr, p) {
+    var a = arr.slice().sort(function (x, y) { return x - y; });
+    var idx = (a.length - 1) * p;
+    var lo = Math.floor(idx), hi = Math.ceil(idx);
+    if (lo === hi) return a[lo];
+    return a[lo] * (hi - idx) + a[hi] * (idx - lo);
+  }
+
+  function emulateFast(p, opt) {
+    opt = opt || {};
+    var n = Math.max(1, Math.min(300, opt.realizations || 40));
+    var seed = opt.seed;
+    if (seed == null) throw new Error("seed is required");
+    var rng = mulberry32(seed);
+    var cond = conductorSpec(p.conductor || "ofhc_cu");
+    requireMaterial("coolant", p.coolant || "di_water");
+    requireMaterial("insulator", p.insulator || "polyimide_kapton");
+    requireMaterial("housing", p.housing || "ss304");
+    var baseIn = Object.assign({}, p, { _fast: true });
+    var base = evaluate(baseIn);
+    var J = base.Jin * 1e6;
+    var rho = cond.rho20 * (1 + cond.alpha * (base.Tcu - 20));
+    var dru = drude({ J: J, rho: rho, n: cond.n, B: p.B0 || 0.5, v_fermi: cond.vF, kohler: false });
+    var R = base.V / base.I;
+    var john = johnson({ T_C: base.Tcu, R: R, f_lo: opt.f_lo == null ? 1 : opt.f_lo, f_hi: opt.f_hi == null ? 1e4 : opt.f_hi });
+    var store = { B0: [], V: [], P: [], Thot: [], vd: [], mfp: [], Vj: [] };
+    var med = opt.contact_median == null ? 1e-6 : opt.contact_median;
+    for (var i = 0; i < n; i++) {
+      var q = Object.assign({}, p, { _fast: true });
+      q.R1 = Math.max(0.03, p.R1 + gaussRand(rng) * 2e-4);
+      q.R2 = Math.max(q.R1 + 0.02, p.R2 + gaussRand(rng) * 2e-4);
+      q.L = Math.max(0.2, p.L + gaussRand(rng) * 5e-4);
+      q.d_plate = p.d_plate * (1 + (rng() * 2 - 1) * 0.01);
+      q.D_hole = p.D_hole * (1 + (rng() * 2 - 1) * 0.01);
+      q.T_in = p.T_in + gaussRand(rng) * 0.2;
+      q.v_flow = Math.max(0.05, p.v_flow * (1 + (rng() * 2 - 1) * 0.10));
+      var lot = 1 + (rng() * 2 - 1) * 0.02;
+      var nTurnsGuess = q.L / (q.d_plate + (p.d_ins || 2.5e-4));
+      var nIf = Math.max(1, Math.round(nTurnsGuess) - 1);
+      var Rc = 0;
+      for (var k = 0; k < nIf; k++) {
+        var z = gaussRand(rng);
+        Rc += Math.exp(Math.log(med) + z);
+      }
+      var nT = q.L / (q.d_plate + (q.d_ins || 2.5e-4));
+      var NI = base.I * nT;
+      var lnr = Math.log(q.R2 / q.R1);
+      var Cc = NI / (q.L * lnr);
+      q.B0 = MU0 * Cc * (Math.asinh(q.L / (2 * q.R1)) - Math.asinh(q.L / (2 * q.R2)));
+      var ev = evaluate(q);
+      var Rbulk = ev.V / ev.I;
+      var contact = (Rbulk + Rc) / Rbulk;
+      var Ji = ev.Jin * 1e6;
+      var rhoi = cond.rho20 * (1 + cond.alpha * (ev.Tcu - 20)) * lot;
+      var di = drude({ J: Ji, rho: rhoi, n: cond.n, B: q.B0, v_fermi: cond.vF, kohler: !!opt.kohler });
+      var ji = johnson({ T_C: ev.Tcu, R: (Rbulk + Rc) * lot, f_lo: opt.f_lo == null ? 1 : opt.f_lo, f_hi: opt.f_hi == null ? 1e4 : opt.f_hi });
+      store.B0.push(q.B0);
+      store.V.push(ev.V * contact * lot);
+      store.P.push(ev.P * contact * lot);
+      store.Thot.push(q.T_in + (ev.Thot - q.T_in) * contact * lot);
+      store.vd.push(di.v_d);
+      store.mfp.push(di.mean_free_path);
+      store.Vj.push(ji.V_rms);
+    }
+    function pack(arr, nom) {
+      return { p05: percentile(arr, 0.05), p50: percentile(arr, 0.5), p95: percentile(arr, 0.95), nominal: nom };
+    }
+    return {
+      label: LABEL,
+      model_grade: { johnson: "established", kohler: "approximate", contact_resistance: "approximate", hooge_1f: "speculative" },
+      note: "Browser subset, cap 300. Same formulas as Python. The Python Monte Carlo is the reference. Loop homogeneity is the continuum value; this subset does not resample ppm.",
+      n: n, seed: seed,
+      drude: dru, johnson: john,
+      ppm_nominal: base.ppm,
+      percentiles: {
+        B0: pack(store.B0, base.B0num),
+        V: pack(store.V, base.V),
+        P: pack(store.P, base.P),
+        T_hot: pack(store.Thot, base.Thot),
+        v_d: pack(store.vd, dru.v_d),
+        mfp: pack(store.mfp, dru.mean_free_path),
+        V_johnson: pack(store.Vj, john.V_rms)
+      }
+    };
+  }
+
   var api = { evaluate: evaluate, bitterAxis: bitterAxis, fieldLoops: fieldLoops, swissRoll: swissRoll, snrGain: snrGain,
-              ellipke: ellipke, loopField: loopField, MU0: MU0 };
+              ellipke: ellipke, loopField: loopField, MU0: MU0, drude: drude, johnson: johnson,
+              coolantProps: coolantProps, catalogIds: catalogIds, requireMaterial: requireMaterial,
+              emulateFast: emulateFast, tsatC: tsatC, conductorSpec: conductorSpec, LABEL: LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BitterSim = api;
 })(this);
