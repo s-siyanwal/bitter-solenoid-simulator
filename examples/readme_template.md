@@ -17,18 +17,21 @@ package/bittersim/   simulation package
   biot_savart.py     blueprint straight-segment Biot-Savart engine (Numba, chunked), helical Bitter mesh, Richardson
   inductance.py      Maxwell mutual inductance, winding self-inductance, Nagaoka check
   design.py          coupled electrical / thermal / hydraulic evaluation of a design
+  catalog.py         material allow-list (conductors, coolants, insulators, housings)
+  emulation.py       mesoscopic emulation (Drude RVE, contact scatter, ONB flags); not molecular dynamics
   thermal.py         Re, Pr, Dittus-Boelter, Gnielinski, friction, pressure drop, hot spot, lumped transient
   mechanics.py       Lorentz force, hoop stress, axial compression
   swissroll.py       Pendry/Lorentzian mu_eff, skin-effect losses, heuristic SNR gain
   optimize.py        differential_evolution + SLSQP constrained optimisation
   validation.py      V&V suite used by VALIDATION.md
   cli.py             command line interface (python -m bittersim)
-tests/               pytest: analytic limits, convergence, energy balance, web-demo parity
+tests/               pytest: analytic limits, convergence, energy balance, web-demo parity, emulation
 notebooks/           Colab/Jupyter notebook with ipywidgets sliders
 docs/                static web demo (index.html + bittersim.js), no install needed
-examples/            run_all.py (reproduces all results/figures), make_docs.py
+examples/            run_all.py (reproduces all results/figures), make_docs.py, run_emulation.py
 figures/ results/    generated outputs
 VALIDATION.md        validation tables and plots    DESIGN_SUMMARY.md  equation-labelled summary for review
+EMULATION.md         mesoscopic emulation grades, formulas, and non-goals
 ```
 
 ## Quickstart
@@ -42,6 +45,9 @@ python -m bittersim evaluate --R2 0.3 --L 1.102 --d-plate 0.00599 --D-hole 0.005
 python -m bittersim optimise --maxiter 100
 python -m bittersim field --rho 0 0.01 0.02 --z 0 0 0.01
 python -m bittersim swissroll
+python -m bittersim catalog
+python -m bittersim emulate --realizations 50 --seed 1
+python examples/run_emulation.py
 python examples/run_all.py && python examples/make_docs.py   # regenerate everything
 ```
 
@@ -58,9 +64,13 @@ Kaggle works the same way: add the repo as a dataset.
 
 ### Web demo (no install)
 
-Open `docs/index.html` in any browser. It is a plain-JS port of the analytic core: E4 field, exact elliptic loop fields for homogeneity, the thermal and hydraulic model, and Swiss-roll μ_eff. `tests/test_webdemo.py` checks that it agrees with the Python model to 1e-9.
+Open `docs/index.html` in any browser. It is a plain-JS port of the analytic core: E4 field, exact elliptic loop fields for homogeneity, the thermal and hydraulic model, and Swiss-roll μ_eff. `tests/test_webdemo.py` checks that it agrees with the Python model to 1e-9. The page also has a configuration panel and a mesoscopic-emulation panel. Every emulation panel is labelled mesoscopic emulation, not molecular dynamics. An id that is not in the catalog is refused.
 
-GitHub Pages is **not** enabled because the repo is private. If you want to publish it, serve `docs/` with Pages.
+### Simulation vs emulation
+
+`evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~2575 kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md).
+
+GitHub Pages is not enabled, and this change does not turn it on or change repository visibility. On GitHub Free, Pages builds only from a public repository. On Pro or Team, a private source can build a site that is still public unless the account is Enterprise with private Pages. The manual workflow `.github/workflows/pages-demo.yml` only uploads `docs/` when the repo is already public. Details are in [docs/HOSTING.md](docs/HOSTING.md).
 
 ## Physics summary
 
@@ -122,6 +132,7 @@ At 0.5 T the design is therefore driven by field quality and size, not by coolin
 
 ## Not implemented / deviations
 
+- **Particle / DFT model of the winding:** not implemented. `emulation.py` is a mesoscopic emulation of a representative volume plus catalog and contact scatter.
 - **FEniCS curl-curl FEA cross-validation:** FEniCS 2017.2/2018.1 cannot be pip-installed on current Colab/Kaggle or here. It is replaced by independent cross-checks: closed forms, the loop model and the segment engine.
 - **"Complete 3D thermal map" and full conjugate heat transfer:** replaced by a 1-D axial channel model plus a local conduction correction for the hottest cell.
 - **Analytic Jacobians/Hessians for SLSQP/trust-constr:** not used. The hole layout makes the objective piecewise, so the run uses DE plus SLSQP with finite differences (trust-constr is available but not needed).
@@ -133,3 +144,4 @@ At 0.5 T the design is therefore driven by field quality and size, not by coolin
 ## CI
 
 `.github/workflows/tests.yml` runs pytest on Python 3.10 and 3.12 with current packages. A second job runs it in a `python:3.6.6` container with the pinned 2018 stack; that job is allowed to fail.
+
