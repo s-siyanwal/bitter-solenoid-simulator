@@ -13,9 +13,9 @@ The current is set so that Bz(0) = B0_target exactly via E4.
 """
 import math
 import numpy as np
-from .constants import MU_0, ALPHA_CU, K_CU, DENS_CU, CP_CU, YIELD_CU_HARD
-from .materials import rho_cu, water_props
-from .fields import B_bitter_center, CoilLoops, homogeneity_ppm
+from .constants import MU_0, ALPHA_CU, K_CU, DENS_CU, CP_CU, RHO_CU_20
+from .materials import rho_cu
+from .fields import CoilLoops, homogeneity_ppm
 from . import thermal
 
 DEFAULTS = dict(
@@ -59,9 +59,68 @@ class BitterDesign(object):
                 "n_per_row": n_per, "n_holes": n_holes, "hole_fraction": f_h}
 
 
-def evaluate_design(design=None, homogeneity=True, n_iter=30, **kw):
-    """Return a dict of all derived quantities for a design."""
+def _audit_warnings(res, radial_rho):
+    """Audit notes. They do not change the numeric continuum solution."""
+    w = []
+    if not radial_rho:
+        w.append("Uniform rho(T) is used. There is no radial rho(T) feedback into J = C/r. "
+                 "The optional correction is off so published numbers stay bit-stable. "
+                 "At 0.5 T and about 26 C this error is small.")
+    else:
+        w.append("Radial rho(T) correction is reported only. P, V and the locked B0 are unchanged.")
+    w.append("Cooling holes are modelled as graded round holes that do not disturb the 1/r profile. "
+             "This is not a Florida-Bitter plate. Real plates use elongated, staggered holes "
+             "because round holes concentrate current and hoop stress.")
+    w.append("Helical slit and plate-to-plate contact resistance are omitted from this resistance "
+             "(%.4g ohm). Contact and busbar resistance can dominate a coil near 1.76 mohm." % res["R_total_ohm"])
+    w.append("Hoop stress bound %.4g MPa is the thin-ring upper estimate sigma = C*B/lambda. "
+             "It is far below hard-copper yield. This 0.5 T design is not stress-limited." % res["sigma_hoop_max_MPa"])
+    w.append("No critical heat flux, onset of nucleate boiling, or deionized-water chemistry "
+             "in the continuum evaluation. A pump-failure time to 85 C is an adiabatic lumped "
+             "estimate and is invalid once the wall boils.")
+    w.append("Swiss-roll SNR gain is a heuristic. It is not an MRI SNR measurement. mu_eff(0) = 1.")
+    near = []
+    ppm = res.get("homogeneity_ppm")
+    if ppm is not None and ppm >= 98.0:
+        near.append("homogeneity")
+    if res["R2"] >= 0.295:
+        near.append("R2 upper bound")
+    if res["R1"] <= 0.0505:
+        near.append("R1 lower bound")
+    if res["Re"] <= 1.05e4:
+        near.append("Re >= 1e4")
+    if res["d_plate"] >= 5.8e-3:
+        near.append("plate thickness")
+    if res["pitch_factor"] >= 7.7:
+        near.append("hole pitch")
+    if near:
+        w.append("Constraints at or near their bounds: %s." % ", ".join(near))
+    else:
+        w.append("No tracked bound is active at this point. Interactive mode still lists each limit.")
+    w.append("No FEniCS model is included. Off-axis checks stay on the loop field and the segment engine.")
+    return w
+
+
+def evaluate_design(design=None, homogeneity=True, n_iter=30, rho_scale=1.0,
+                    radial_rho=False, fluid=None, k_solid=None, alpha=None, rho20=None, **kw):
+    """Return a dict of all derived quantities for a design.
+
+    Extra arguments default to the published path. rho_scale=1, radial_rho off,
+    fluid None, and OFHC constants leave every continuum number unchanged.
+    """
     d = design if design is not None else BitterDesign(**kw)
+
+    def rho_at(T):
+        if rho20 is None and alpha is None:
+            val = float(rho_cu(T))
+        else:
+            r0 = RHO_CU_20 if rho20 is None else float(rho20)
+            al = ALPHA_CU if alpha is None else float(alpha)
+            val = r0 * (1.0 + al * (float(T) - 20.0))
+        if rho_scale != 1.0:
+            val = val * float(rho_scale)
+        return val
+
     R1, R2, L = d.R1, d.R2, d.L
     lnr = math.log(R2 / R1)
     lay = d.hole_layout()
@@ -81,9 +140,9 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, **kw):
     T_cu = d.T_in + 10.0
     T_bulk = d.T_in + 5.0
     for _ in range(n_iter):
-        rho = float(rho_cu(T_cu))
+        rho = rho_at(T_cu)
         P = 2 * math.pi * rho * C ** 2 * L * lnr / lam
-        fl = thermal.channel_flow(d.v_flow, d.D_hole, L, T_bulk, d.correlation, d.K_minor, d.eta_pump)
+        fl = thermal.channel_flow(d.v_flow, d.D_hole, L, T_bulk, d.correlation, d.K_minor, d.eta_pump, fluid=fluid)
         m_tot = fl["m_dot"] * n_holes
         dT_mix = P / (m_tot * fl["cp"])
         dT_film_mean = P / (fl["h"] * A_wet_cu_per_len * n_holes * L)
@@ -93,7 +152,7 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, **kw):
             T_cu, T_bulk = T_cu_new, T_bulk_new
             break
         T_cu, T_bulk = T_cu_new, T_bulk_new
-    rho = float(rho_cu(T_cu))
+    rho = rho_at(T_cu)
     P = 2 * math.pi * rho * C ** 2 * L * lnr / lam
     R_turn = 2 * math.pi * rho / (d.d_plate * (1 - f_h) * lnr)
     R_tot = R_turn * n_turns
@@ -105,15 +164,16 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, **kw):
     cell_area = lay["dr_row"] * 2 * math.pi * lay["r_rows"][0] / n0
     b = math.sqrt(cell_area / math.pi)
     a = d.D_hole / 2.0
+    k_cond = K_CU if k_solid is None else k_solid
     T_hot = T_cu
     for _ in range(n_iter):
-        rho_h = float(rho_cu(T_hot))
+        rho_h = rho_at(T_hot)
         q_line = (2 * math.pi / n0) * rho_h * C ** 2 / lam * math.log(r_out0 / R1)   # W/m per hole
         dT_w = q_line * L / (fl["m_dot"] * fl["cp"])
         q_flux = q_line / A_wet_cu_per_len
         dT_film = q_flux / fl["h"]
         q_v_cu = rho_h * (C / (lam * R1)) ** 2
-        dT_cond = thermal.annulus_conduction_dT(q_v_cu, a, b, K_CU)
+        dT_cond = thermal.annulus_conduction_dT(q_v_cu, a, b, k_cond)
         T_new = d.T_in + dT_w + dT_film + dT_cond
         if abs(T_new - T_hot) < 1e-10:
             T_hot = T_new
@@ -138,7 +198,7 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, **kw):
     V_cu = math.pi * (R2 ** 2 - R1 ** 2) * L * lam
     C_th = V_cu * DENS_CU * CP_CU
     R_th = 1.0 / (fl["h"] * A_wet_cu_per_len * n_holes * L)
-    P20 = 2 * math.pi * float(rho_cu(20.0)) * C ** 2 * L * lnr / lam
+    P20 = 2 * math.pi * rho_at(20.0) * C ** 2 * L * lnr / lam
     adiabatic_rate = P / C_th
 
     res = dict(d.p)
@@ -166,4 +226,12 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, **kw):
         ppm, B0num = homogeneity_ppm(coil, d.dsv / 2.0)
         res["homogeneity_ppm"] = ppm
         res["B0_numeric_T"] = B0num
+    res["warnings"] = _audit_warnings(res, radial_rho)
+    if radial_rho:
+        contrast = ALPHA_CU * (res["T_hot_C"] - res["T_cu_mean_C"])
+        res["radial_rho_dB_over_B"] = -0.5 * contrast
+        res["radial_rho_model_grade"] = "approximate"
+        res["radial_rho_note"] = (
+            "Approximate fractional isocentre shift from a hotter inner radius. "
+            "Not applied to P, V, or the locked B0.")
     return res
