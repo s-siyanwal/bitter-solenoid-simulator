@@ -1,0 +1,315 @@
+{
+ "label": "mesoscopic emulation, not molecular dynamics",
+ "model_grade": {
+  "drude_tau": "established",
+  "drift_velocity": "established",
+  "johnson": "established",
+  "shot_comparison": "established",
+  "kohler": "approximate",
+  "langevin_rve": "approximate",
+  "contact_resistance": "approximate",
+  "manufacturing_scatter": "approximate",
+  "onb_bergles_rohsenow": "approximate",
+  "antoine_tsat": "established",
+  "hooge_1f": "speculative",
+  "swissroll_snr": "speculative",
+  "housing_convection": "approximate",
+  "radial_rho": "approximate"
+ },
+ "seed": 1,
+ "n_realizations": 50,
+ "nominal_summary": {
+  "B0_T": 0.5000000000102702,
+  "V_V": 19.536608729877393,
+  "P_W": 17973.55009002272,
+  "T_hot_C": 21.15280495891126,
+  "ppm": 154.14557204723525,
+  "R_ohm": 0.02123559779523997,
+  "I_A": 919.993348821882,
+  "v_d_m_s": 0.0007662703026886881,
+  "mean_free_path_m": 3.9108252936801436e-08,
+  "tau_s": 2.490971524637034e-14,
+  "omega_c_tau": 0.002190585263116763,
+  "V_johnson_V": 1.8550131408782846e-09
+ },
+ "drude_kohler_off": {
+  "label": "mesoscopic emulation, not molecular dynamics",
+  "n_m3": 8.47e+28,
+  "tau_s": 2.490971524637034e-14,
+  "rho_ohm_m": 1.6819614681742445e-08,
+  "rho_from_tau": 1.6819614681742445e-08,
+  "v_fermi_m_s": 1570000.0,
+  "v_thermal_m_s": 106422.14899473116,
+  "v_d_m_s": 0.0007662703026886881,
+  "mean_free_path_m": 3.9108252936801436e-08,
+  "transit_plate_s": 2.610045036304295,
+  "transit_mfp_s": 2.490971524637034e-14,
+  "omega_c_tau": 0.002190585263116763,
+  "kohler_on": false,
+  "kohler_a": 1.0,
+  "kohler_drho_over_rho": 0.0,
+  "model_grade_kohler": "off",
+  "E_V_m": 0.1749008165969398,
+  "J_dot_E_W_m3": 1818727.4931739005,
+  "q_continuum_W_m3": 1818727.4931739005,
+  "power_density_rel_error": 0.0,
+  "model_grade": "established"
+ },
+ "drude": {
+  "label": "mesoscopic emulation, not molecular dynamics",
+  "n_m3": 8.47e+28,
+  "tau_s": 2.490971524637034e-14,
+  "rho_ohm_m": 1.6819614681742445e-08,
+  "rho_from_tau": 1.6819614681742445e-08,
+  "v_fermi_m_s": 1570000.0,
+  "v_thermal_m_s": 106422.14899473116,
+  "v_d_m_s": 0.0007662703026886881,
+  "mean_free_path_m": 3.9108252936801436e-08,
+  "transit_plate_s": 2.610045036304295,
+  "transit_mfp_s": 2.490971524637034e-14,
+  "omega_c_tau": 0.002190585263116763,
+  "kohler_on": true,
+  "kohler_a": 1.0,
+  "kohler_drho_over_rho": 4.798663794984337e-06,
+  "model_grade_kohler": "approximate",
+  "E_V_m": 0.17490165588715612,
+  "J_dot_E_W_m3": 1818736.220635675,
+  "q_continuum_W_m3": 1818727.4931739005,
+  "power_density_rel_error": 4.798663794946739e-06,
+  "model_grade": "approximate"
+ },
+ "langevin": {
+  "label": "mesoscopic emulation, not molecular dynamics",
+  "model_grade": "approximate",
+  "note": "Visualization of the Drude process in one RVE. Not a sample of the magnet.",
+  "n_carriers": 4000,
+  "steps": 600,
+  "seed": 1,
+  "mean_v_m_s": 444.2500571136318,
+  "stderr_m_s": 1073.3696456513862,
+  "v_d_m_s": 0.0007662703026886881,
+  "drift_resolved": false
+ },
+ "johnson": {
+  "model_grade": "established",
+  "S_v_V2_per_Hz": 3.4414178946205803e-22,
+  "V_rms_V": 1.8550131408782846e-09,
+  "f_lo_Hz": 1.0,
+  "f_hi_Hz": 10000.0,
+  "note": "Supply-sense Johnson voltage. Coil Johnson noise is not the MRI noise floor."
+ },
+ "johnson_larmor_1Hz": {
+  "model_grade": "established",
+  "S_v_V2_per_Hz": 3.4414178946205803e-22,
+  "V_rms_V": 1.8551058984922075e-11,
+  "f_lo_Hz": 21288739.258916277,
+  "f_hi_Hz": 21288740.258916277,
+  "note": "Spectral density at the Larmor frequency, integrated over 1 Hz only so a number exists. This is not the MRI noise floor."
+ },
+ "shot_vs_johnson": {
+  "model_grade": "established",
+  "I_shot_rms_A": 1.7168834758681327e-06,
+  "I_johnson_rms_A": 8.735394024528435e-08,
+  "shot_over_johnson": 19.654333520013317,
+  "note": "Shot noise is negligible in this metal. The ratio is a comparison, not a measured current noise."
+ },
+ "hooge": null,
+ "pump_failure": {
+  "reaches_tsat": true,
+  "time_to_tsat_s": 479.0,
+  "invalid_after": "Tsat",
+  "model_grade": "approximate",
+  "note": "Adiabatic lumped trajectory. Interpretation stops at Tsat. The published time to 85 C is not a boiling model."
+ },
+ "thermal": {
+  "tsat_C": 99.99766611538183,
+  "q_onb_W_m2": 0.0,
+  "onb_margin_K": 78.87654931579999,
+  "onb_correlation": "Bergles-Rohsenow 1964",
+  "model_grade": "approximate"
+ },
+ "warnings": [
+  "Uniform rho(T) is used. There is no radial rho(T) feedback into J = C/r. The optional correction is off so published numbers stay bit-stable. At 0.5 T and about 26 C this error is small.",
+  "Cooling holes are modelled as graded round holes that do not disturb the 1/r profile. This is not a Florida-Bitter plate. Real plates use elongated, staggered holes because round holes concentrate current and hoop stress.",
+  "Helical slit and plate-to-plate contact resistance are omitted from this resistance (0.02124 ohm). Contact and busbar resistance can dominate a coil near 1.76 mohm.",
+  "Hoop stress bound 0.26 MPa is the thin-ring upper estimate sigma = C*B/lambda. It is far below hard-copper yield. This 0.5 T design is not stress-limited.",
+  "No critical heat flux, onset of nucleate boiling, or deionized-water chemistry in the continuum evaluation. A pump-failure time to 85 C is an adiabatic lumped estimate and is invalid once the wall boils.",
+  "Swiss-roll SNR gain is a heuristic. It is not an MRI SNR measurement. mu_eff(0) = 1.",
+  "Constraints at or near their bounds: homogeneity, R1 lower bound.",
+  "No FEniCS model is included. Off-axis checks stay on the loop field and the segment engine.",
+  "Existing water correlations, valid roughly 1-95 C. Real Bitter water is deionized (order 1 Mohm cm) and preferably deaerated. Aerated water can mark copper at a few m/s. Deaerated high-purity water is commonly run near 8-15 m/s in high-field labs. This 0.5 T design is far below that.",
+  "Stand-in for the 0.25 mm insulator assumption. Continuous rating about 220 C. Dielectric strength is high. Water uptake is a known Bitter-plate failure mode.",
+  "Non-current-carrying housing. Used only for a secondary external-convection term and a mass estimate. Conductivity does not create a shorted turn unless conductive bore is enabled.",
+  "Housing conductivity is ignored. Enable conductive bore to attach the shorted-turn warning.",
+  "Plate-to-plate contact resistance is sampled only in the emulation, not in the continuum resistance.",
+  "ONB uses the Bergles-Rohsenow water correlation and is labeled approximate. There is no critical-heat-flux map."
+ ],
+ "constraints": [
+  {
+   "name": "T_hot",
+   "value": 21.15280495891126,
+   "limit": 85.0,
+   "status": "ok",
+   "unit": "C"
+  },
+  {
+   "name": "V_supply",
+   "value": 19.536608729877393,
+   "limit": 8.0,
+   "status": "violation",
+   "unit": "V"
+  },
+  {
+   "name": "homogeneity",
+   "value": 154.14557204723525,
+   "limit": 100.0,
+   "status": "violation",
+   "unit": "ppm"
+  },
+  {
+   "name": "pressure",
+   "value": 19459.743942882546,
+   "limit": 500000.0,
+   "status": "ok",
+   "unit": "Pa"
+  },
+  {
+   "name": "Reynolds",
+   "value": 12477.28474030273,
+   "limit": 10000.0,
+   "status": "ok",
+   "unit": "1"
+  },
+  {
+   "name": "R1",
+   "value": 0.05,
+   "limit": 0.05,
+   "status": "warning",
+   "unit": "m"
+  },
+  {
+   "name": "R2",
+   "value": 0.15,
+   "limit": 0.3,
+   "status": "ok",
+   "unit": "m"
+  },
+  {
+   "name": "T_out_vs_Tsat_minus_10K",
+   "value": 20.140720824608294,
+   "limit": 89.99766611538183,
+   "status": "ok",
+   "unit": "C"
+  },
+  {
+   "name": "T_wall_vs_Tsat",
+   "value": 21.121116799581838,
+   "limit": 99.99766611538183,
+   "status": "ok",
+   "unit": "C"
+  },
+  {
+   "name": "hoop_vs_0.6_yield",
+   "value": 259965.5519855535,
+   "limit": 150000000.0,
+   "status": "ok",
+   "unit": "Pa"
+  },
+  {
+   "name": "insulator_temperature",
+   "value": 21.15280495891126,
+   "limit": 220.0,
+   "status": "ok",
+   "unit": "C"
+  },
+  {
+   "name": "velocity",
+   "value": 2.5,
+   "limit": 15.0,
+   "status": "ok",
+   "unit": "m/s"
+  }
+ ],
+ "assumptions": {
+  "hole_diameter_tolerance_rel": 0.01,
+  "plate_thickness_tolerance_rel": 0.01,
+  "radius_sigma_m": 0.0002,
+  "length_sigma_m": 0.0005,
+  "tin_sigma_K": 0.2,
+  "rho_lot_half_width": 0.02,
+  "flow_maldistribution_half_width": 0.1,
+  "contact_median_ohm_per_interface": 1e-06,
+  "contact_log_sigma": 1.0,
+  "n_interfaces_nominal": 355,
+  "contact_note": "Log-normal plate-to-plate resistance. Median is an assumption, not a measurement.",
+  "flow_note": "The continuum model has one velocity. Perturbing it stands in for inner-row maldistribution."
+ },
+ "percentiles": {
+  "B0_T": {
+   "p05": 0.4963942843475925,
+   "p50": 0.5001840137467948,
+   "p95": 0.5034414620264972,
+   "mean": 0.5001846776154603,
+   "bias_p50_minus_nominal": 0.00018401373652454645
+  },
+  "V_V": {
+   "p05": 19.36075810689882,
+   "p50": 19.951439425264553,
+   "p95": 20.48623766545833,
+   "mean": 19.95329555590099,
+   "bias_p50_minus_nominal": 0.41483069538715966
+  },
+  "P_W": {
+   "p05": 17811.76868649625,
+   "p50": 18355.19157066606,
+   "p95": 18847.20239460598,
+   "mean": 18356.899198506126,
+   "bias_p50_minus_nominal": 381.6414806433386
+  },
+  "T_hot_C": {
+   "p05": 21.002063096308078,
+   "p50": 21.288917231356862,
+   "p95": 21.52057104718003,
+   "mean": 21.273528207516428,
+   "bias_p50_minus_nominal": 0.13611227244560098
+  },
+  "ppm": {
+   "p05": 152.9757376620329,
+   "p50": 154.02076115026966,
+   "p95": 154.99881612049063,
+   "mean": 153.9674274635182,
+   "bias_p50_minus_nominal": -0.12481089696558456
+  },
+  "v_d_m_s": {
+   "p05": 0.0007448404949019729,
+   "p50": 0.0007586379529912553,
+   "p95": 0.0007712946712299524,
+   "mean": 0.0007583351364496407,
+   "bias_p50_minus_nominal": -7.632349697432833e-06
+  },
+  "mean_free_path_m": {
+   "p05": 3.83871950212617e-08,
+   "p50": 3.8889081310702486e-08,
+   "p95": 3.980923694943236e-08,
+   "mean": 3.897851728721916e-08,
+   "bias_p50_minus_nominal": -2.1917162609894985e-10
+  },
+  "V_johnson_V": {
+   "p05": 1.8469567164753047e-09,
+   "p50": 1.874150709733376e-09,
+   "p95": 1.9001405528342556e-09,
+   "mean": 1.874776825848658e-09,
+   "bias_p50_minus_nominal": 1.9137568855091382e-11
+  }
+ },
+ "trip_probability": {
+  "T_hot_above_85C": 0.0,
+  "onb_margin_below_0": 0.0,
+  "stress_above_0.6_yield": 0.0
+ },
+ "active_constraints": [
+  "V_supply",
+  "homogeneity",
+  "R1"
+ ]
+}
