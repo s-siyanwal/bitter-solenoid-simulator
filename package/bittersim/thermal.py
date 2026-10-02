@@ -31,9 +31,13 @@ def nusselt_gnielinski(Re, Pr):
     return (f / 8.0) * (Re - 1000.0) * Pr / (1.0 + 12.7 * math.sqrt(f / 8.0) * (Pr ** (2.0 / 3.0) - 1.0))
 
 
-def channel_flow(v, D, length, T_bulk, correlation="dittus-boelter", K_minor=1.5, eta_pump=0.7):
-    """Single circular channel: Re, Pr, h, f, dp, per-channel mass flow."""
-    w = water_props(T_bulk)
+def channel_flow(v, D, length, T_bulk, correlation="dittus-boelter", K_minor=1.5, eta_pump=0.7, fluid=None):
+    """Single circular channel: Re, Pr, h, f, dp, per-channel mass flow.
+
+    fluid=None keeps the water correlations. A callable fluid(T) is only used
+    by catalog coolants. The published default path does not pass it.
+    """
+    w = water_props(T_bulk) if fluid is None else fluid(T_bulk)
     Re = w["rho"] * v * D / w["mu"]
     Pr = w["Pr"]
     if Re < 2300.0:
