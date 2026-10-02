@@ -203,3 +203,6 @@ L.append("## Not validated\n\n* FEniCS curl-curl cross-validation (PDF): FEniCS 
          "* Swiss-roll SNR gain: heuristic model with no experimental calibration here.\n")
 open(os.path.join(ROOT, "VALIDATION.md"), "w").write("\n".join(L))
 print("total runtime %.1f s" % (time.time() - t0))
+script = os.path.join(HERE, "update_report.py")
+if os.path.isfile(script):
+    os.system("%s %s" % (sys.executable, script))
