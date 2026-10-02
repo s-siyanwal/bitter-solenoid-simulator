@@ -1,0 +1,263 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{booktabs}
+\usepackage{verbatim}
+
+\title{Bitter solenoid simulator:\\continuum model, mesoscopic emulation, and the living record}
+\author{s-siyanwal/bitter-solenoid-simulator}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note records the physics, the algorithms, and the numbers of the 0.5~T water-cooled copper Bitter-solenoid simulator.
+The continuum solver is the reference.
+The mesoscopic emulation is a separate layer.
+It is not molecular dynamics, and it is not a particle model of the roughly 2575~kg winding.
+Tables in the generated section are rewritten by \texttt{examples/update\_report.py} after \texttt{examples/run\_all.py} or \texttt{examples/run\_emulation.py}.
+A code or results change appends the changelog in the same commit.
+\end{abstract}
+
+\section{What the two layers are}
+
+The continuum package evaluates one design: geometry, current locked to a target on-axis field, copper temperature, channel flow, thin-ring hoop stress, and a Swiss-roll radiofrequency coating whose static permeability is exactly 1.
+The optimiser searches that map.
+
+The emulation layer does not replace that evaluation.
+It reports a Drude representative volume at the inner radius, a seeded Langevin cloud inside that volume, Johnson noise on the supply sense, and a Monte Carlo of manufacturing and contact scatter around the same continuum call.
+Every emulation object carries the label ``mesoscopic emulation, not molecular dynamics''.
+
+Model grades, written into the JSON:
+\begin{itemize}
+\item established: Drude identities, Johnson--Nyquist, shot-versus-Johnson comparison, Antoine saturation temperature;
+\item approximate: Kohler magnetoresistance with a coefficient of order 1, the Langevin picture, log-normal contact resistance, tolerances, Bergles--Rohsenow onset of nucleate boiling, housing convection, the optional radial resistivity note;
+\item speculative: Hooge-like $1/f$ (default off) and the Swiss-roll signal-to-noise gain.
+\end{itemize}
+
+\section{Continuum field}
+
+Amp\`ere's law for a long thin solenoid is $B=\mu_0 n I$.
+A finite thin solenoid is $B_z(0)=\frac12\mu_0 n I(\cos\theta_1+\cos\theta_2)$.
+A thick winding with uniform current density has the logarithmic closed form.
+A Bitter plate has $J_\phi = C/r$ because the resistive sheet between two radii is a solution of Laplace's equation for the voltage.
+On axis,
+\begin{equation}
+B_z(0)=\mu_0 C\left[\operatorname{asinh}\frac{L}{2R_1}-\operatorname{asinh}\frac{L}{2R_2}\right].
+\end{equation}
+Off axis the winding is a set of Gauss--Legendre coaxial loops.
+Each loop uses the complete elliptic integrals $K(m)$ and $E(m)$, evaluated with the arithmetic-geometric mean so the browser and the Numba kernel share the same limit.
+The straight-segment Biot--Savart engine is an independent check, not the design loop.
+Homogeneity is the peak-to-peak spread of $|B|$ on a 30~mm diameter spherical volume, in parts per million of the isocentre field.
+The current is chosen so the closed-form centre field equals the requested $B_0$, usually 0.5~T.
+The loop model then reports a numerical centre field that agrees with that lock to well under a microtesla on the published designs.
+
+Fill. Insulation thickness $d_i$ and the hole area fraction $f_h$ reduce the copper:
+\begin{equation}
+\lambda = \frac{d}{d+d_i}(1-f_h),\qquad
+N = \frac{L}{d+d_i},\qquad
+I = \frac{C L \ln(R_2/R_1)}{N}.
+\end{equation}
+Electrical power at the mean copper temperature, with resistivity $\rho(T)=\rho_{20}[1+\alpha(T-20)]$, is
+\begin{equation}
+P = \frac{2\pi \rho(T)\, C^2 L \ln(R_2/R_1)}{\lambda}.
+\end{equation}
+The published optimum uses a uniform $\rho(T)$.
+An optional radial correction is reported and left off, so those numbers stay put.
+
+\section{Heat and water}
+
+Bulk water properties are the same correlations in Python and in \texttt{docs/bittersim.js}.
+A channel of diameter $D$ and speed $v$ has Reynolds and Prandtl numbers from those properties.
+Turbulent Nusselt numbers are Dittus--Boelter, $0.023\,\mathrm{Re}^{0.8}\mathrm{Pr}^{0.4}$, and Gnielinski.
+Laminar channels use $\mathrm{Nu}=4.36$.
+Darcy friction is $64/\mathrm{Re}$ below 2300 and the Petukhov smooth-pipe formula above it.
+Pressure drop adds a minor-loss coefficient of 1.5.
+Pump shaft power divides hydraulic power by $\eta=0.7$.
+
+The stack is iterated at fixed current constant $C$: update power, mixed-cup temperature rise $P/(\dot m c_p)$, film drop, and mean copper temperature until the increment is below $10^{-10}$~K.
+The hot spot is the inner hole row at the outlet.
+That channel carries only its own heat.
+Conduction through the plate to the hole is an annular fin with an insulated outer boundary,
+\begin{equation}
+\Delta T_{\mathrm{cond}} = \frac{q}{4k}\left[2b^2\ln\frac{b}{a}-(b^2-a^2)\right].
+\end{equation}
+The lumped transient is one copper node and quasi-steady water.
+With cooling removed, temperature runs away adiabatically.
+On the seed-1 optimum that integrator reaches 85~C in 4922~s.
+That figure is not a boiling model.
+The emulation flags the adiabatic curve at the Antoine saturation temperature and stops interpreting it there.
+On the PDF initial guess that saturation time is about 479~s.
+The two captions must not be swapped.
+
+Antoine, for site pressure in bar inside about 0.7 to 2~bar,
+\begin{equation}
+T_{\mathrm{sat}}/^\circ\mathrm{C} = \frac{1730.63}{5.1962-\log_{10}(p/\mathrm{bar})}-233.426.
+\end{equation}
+At 101325~Pa this is 100~C within half a degree.
+Onset of nucleate boiling, water only, is Bergles--Rohsenow (1964).
+Other catalog coolants do not inherit that water formula.
+The mixed outlet is asked to stay 10~K under saturation.
+There is no critical-heat-flux map.
+
+\section{Mechanics and the Swiss roll}
+
+The thin-ring hoop bound is $\sigma = C B_0/\lambda$.
+A field-profile integral gives a slightly smaller stress.
+Both are about 0.12~MPa on the optimum, far under hard-copper yield.
+The 0.5~T design is not stress-limited.
+Axial force compresses each half of the stack.
+Round graded holes are not a Florida-Bitter plate: real plates use elongated staggered holes because round holes crowd current.
+
+The Swiss roll is a Pendry--Lorentzian coating,
+\begin{equation}
+\mu_{\mathrm{eff}}(\omega)=1-\frac{F\omega^2}{\omega^2-\omega_0^2+i\omega\Gamma},
+\end{equation}
+with geometric $\omega_0$, skin-effect sheet resistance, and a loss multiplier that puts $Q$ near 97.
+At zero frequency, $\mu_{\mathrm{eff}}=1$, so the roll does not move $B_0$ or the homogeneity in this model.
+The signal-to-noise expression is a heuristic (reciprocity, a flux guide, and a $\mu''$ noise term).
+It is not an MRI measurement.
+
+\section{Optimiser}
+
+Decision variables are inner radius, build $(R_2-R_1)$, length, plate thickness, hole diameter, water speed, and pitch ratio.
+Voltage is derived.
+The objective is electrical power plus pump shaft power.
+Inequality limits, written as $g\ge 0$ inside the code, are hot spot $\le 85~^\circ$C, supply $\le 8$~V, homogeneity $\le 100$~ppm, pressure drop $\le 5$~bar, $\mathrm{Re}\ge 10^4$, and $R_2\le 0.3$~m, together with the box bounds in \texttt{optimize.py}.
+
+\begin{verbatim}
+procedure OPTIMISE(seed, bounds, limits):
+    population <- differential_evolution(objective, bounds, seed)
+    best <- member with smallest P_elec + P_pump among feasible members
+    polished <- SLSQP(best) with finite-difference gradients
+    return polished if it improves the objective and stays feasible
+           else best
+end procedure
+\end{verbatim}
+
+The published seed-1 run used 10605 evaluations.
+SLSQP did not improve it.
+Active limits were homogeneity, both radii, Reynolds number, and plate and pitch near their upper bounds.
+Hot-spot temperature and voltage had a large margin.
+This report does not replace that table when the same code is re-run on another machine.
+A changed algorithm would be a new row, with its own seed and version.
+
+\section{Catalog}
+
+Only listed identifiers are legal.
+An unknown id raises \texttt{ValueError} and prints the list.
+Conductors: OFHC copper (default), a Cu--Ag approximation, a Cu--Zr approximation, and aluminium 1350, which is allowed with a warning and is not recommended.
+Coolants, liquid only: deionized water (the existing correlations), 30~percent water--glycol (conductive, not a dielectric), and a Galden HT135-class fluorocarbon (dielectric, lower heat-transfer coefficient).
+The continuum JavaScript core still uses water correlations; the page says so when Galden is selected.
+Insulators: polyimide, mica, PTFE, G-10.
+G-10 between wet plates warns.
+Housing (304 stainless, G-10 bore, 6061 aluminium) adds an external-convection estimate at $8~\mathrm{W\,m^{-2}K^{-1}}$ and a mass.
+It is not subtracted from the copper power.
+A conductive bore is a warning, not an eddy-current finite-element solution.
+No FEniCS model is included.
+
+\section{Mesoscopic emulation}
+
+Constants shared with the browser, so the identities match to $10^{-9}$:
+$e=1.60217662\times 10^{-19}~\mathrm{C}$,
+$m_e=9.1093837\times 10^{-31}~\mathrm{kg}$,
+$k_B=1.38064852\times 10^{-23}~\mathrm{J\,K^{-1}}$.
+
+Drude, at the inner-radius copper:
+\begin{align}
+\rho &= \frac{m_e}{n e^2 \tau},&
+v_d &= \frac{J}{n e},&
+\lambda &= v_F \tau,\\
+\omega_c\tau &= \frac{eB}{m_e}\tau,&
+\frac{\Delta\rho}{\rho} &= a(\omega_c\tau)^2.
+\end{align}
+The Kohler coefficient $a$ defaults to 1 and defaults to on only inside the emulation.
+With Kohler off, $\mathbf{J}\cdot\mathbf{E}=\rho J^2$ exactly.
+At 0.5~T the Hall angle is far below $10^{-2}$, so magnetoresistance is negligible for this magnet.
+Drift is about $10^{-3}~\mathrm{m\,s^{-1}}$ or less.
+The mean free path is tens of nanometres.
+
+The Langevin step is one-dimensional and lives only in that volume.
+NumPy's \texttt{RandomState} is used so the picture does not depend on the Generator API.
+\begin{equation}
+\mathrm{d}v = -\frac{v}{\tau}\mathrm{d}t + \frac{v_d}{\tau}\mathrm{d}t
++ \sqrt{\frac{2k_B T}{m_e\tau}}\,\mathrm{d}W,
+\qquad \mathrm{d}t=\tau/20.
+\end{equation}
+At room temperature the thermal speed dwarfs $v_d$, so a few dozen carriers do not resolve the drift.
+A zero-temperature test must converge to $v_d$.
+The cloud on the web page is the same formula with an independent mulberry32 stream.
+It is not a drawing of $10^{28}$ carriers.
+
+Johnson voltage spectral density is $S_V=4k_B T R$, integrated from 1~Hz to 10~kHz by default.
+A 1~Hz bin at the Larmor frequency is a density, not the MRI noise floor.
+Shot noise $\sqrt{2e I\,\mathrm{d}f}$ is negligible next to Johnson current noise in this metal.
+Hooge $1/f$ is off unless requested, and the browser does not apply it.
+
+Monte Carlo, seed required.
+The reference sample is Python, default 200 draws.
+The verified comparison used 50 draws and seed 1.
+Scatter, all labeled as assumptions: radii normal with $\sigma=0.2$~mm, length $\sigma=0.5$~mm, hole and plate uniform $\pm 1$~percent, inlet temperature $\sigma=0.2$~K, inner-row speed uniform $\pm 10$~percent, resistivity lot uniform $\pm 2$~percent, contact resistance log-normal with median $10^{-6}~\Omega$ per interface and $\sigma_{\ln}=1$.
+The number of interfaces is $\max(1,\mathrm{round}(N)-1)$.
+Supply current is the nominal value.
+$B_0$ is recomputed from that current and the perturbed turns and radii, then \texttt{evaluate\_design} is called so the lock matches a fixed-current field.
+Contact scales voltage, power, and the temperature rise by $(R+R_c)/R$.
+The lot multiplies resistivity inside the evaluator.
+Percentiles are 5, 50 and 95.
+Bias is the median minus the nominal continuum value.
+Trip fractions: hot spot above 85~C, ONB margin below 0, hoop stress above 0.6 times the selected temper yield.
+
+\begin{verbatim}
+procedure EMULATE(design, n, seed, catalog):
+    nominal <- EVALUATE(design, catalog)
+    rng <- RandomState(seed)
+    for i in 1..n:
+        q <- perturb geometry, flow, inlet, resistivity lot
+        Rc <- sum of log-normal contact draws
+        q.B0 <- field of the nominal current in the perturbed geometry
+        sample <- EVALUATE(q)
+        scale <- (R_sample + Rc) / R_sample * lot
+        record B0, V*scale, P*scale, T scaled the same way,
+               drift, mean free path, Johnson voltage
+    return percentiles, trip fractions, warnings, model_grade
+end procedure
+\end{verbatim}
+
+The browser subset caps $n$ at 300, skips the loop homogeneity inside each draw, and uses a different random stream.
+Its ppm column is the continuum value.
+Python is the reference when the two disagree.
+
+\section{Interactive page}
+
+\texttt{docs/index.html} and \texttt{docs/bittersim.js} have no build step and no network requirement.
+Sliders recompute the continuum model immediately.
+Two presets fill the PDF initial guess and the seed-1 optimum at the geometry that prints 19.537~V, 17.974~kW, 21.153~C, 154.15~ppm and 4.543~V, 11.704~kW, 25.946~C, 99.95~ppm, 321.8~L/min.
+A canvas draws the annulus, the plate pitch, the hole rows, a moving inlet-to-outlet marker, and the 30~mm DSV.
+Copper colour is $J\propto 1/r$, or a cartoon temperature that is only a drawing.
+A second canvas is a coarse elliptic-loop map of $B_z(\rho,z)$ with the DSV box and the printed ppm.
+The emulation button draws quantile bars, a Langevin cloud, and an adiabatic sparkline that is captioned separately for the 4922~s optimum and the 479~s saturation path.
+Out-of-catalog ids are refused.
+Typed numbers outside the catalog window are clamped and the clamp is explained.
+
+\section{How the report stays current}
+
+\texttt{examples/run\_all.py} and \texttt{examples/run\_emulation.py} call \texttt{examples/update\_report.py}.
+That script rewrites \texttt{report/generated\_numbers.tex} from \texttt{results/results.json} and \texttt{results/emulation\_compare.json}, then copies the report into \texttt{docs/} so the GitHub Pages tree can serve it.
+It does not overwrite \texttt{results/results.json} with emulation output.
+A later change of physics, of the page, or of a reported number is recorded with
+\begin{verbatim}
+python examples/update_report.py --append "what changed, tests, numbers"
+\end{verbatim}
+which appends \texttt{report/changelog.tex} and \texttt{PROJECT\_REPORT.md} in that same commit.
+\texttt{python examples/update\_report.py --check} fails if the published printed figures or the Pages-demo changelog entry are missing.
+
+\section{Generated numbers}
+\input{generated_numbers.tex}
+
+\section{Changelog}
+\input{changelog.tex}
+
+\end{document}

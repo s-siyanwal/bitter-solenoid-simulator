@@ -64,13 +64,13 @@ Kaggle works the same way: add the repo as a dataset.
 
 ### Web demo (no install)
 
-Open `docs/index.html` in any browser. It is a plain-JS port of the analytic core: E4 field, exact elliptic loop fields for homogeneity, the thermal and hydraulic model, and Swiss-roll μ_eff. `tests/test_webdemo.py` checks that it agrees with the Python model to 1e-9. The page also has a configuration panel and a mesoscopic-emulation panel. Every emulation panel is labelled mesoscopic emulation, not molecular dynamics. An id that is not in the catalog is refused.
+Open `docs/index.html` in any browser, including from a file URL. It is a plain-JS port of the analytic core: E4 field, exact elliptic loop fields for homogeneity, the thermal and hydraulic model, and Swiss-roll μ_eff. `tests/test_webdemo.py` checks that it agrees with the Python model to 1e-9, and that the PDF-guess and seed-1 presets match the printed precision. The page draws the plate stack, a coarse Bz map, constraint chips, and a button-triggered emulation (quantile bars, a Langevin cloud in one representative volume, a pump-failure sketch). Every emulation panel is labelled mesoscopic emulation, not molecular dynamics. An id that is not in the catalog is refused. The living write-up is [PROJECT_REPORT.md](PROJECT_REPORT.md) and [report/bitter_solenoid_report.tex](report/bitter_solenoid_report.tex). `examples/update_report.py` refreshes the numerical TeX tables after `run_all.py` or `run_emulation.py`.
 
 ### Simulation vs emulation
 
 `evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~2575 kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md).
 
-GitHub Pages is not enabled, and this change does not turn it on or change repository visibility. On GitHub Free, Pages builds only from a public repository. On Pro or Team, a private source can build a site that is still public unless the account is Enterprise with private Pages. The manual workflow `.github/workflows/pages-demo.yml` only uploads `docs/` when the repo is already public. Details are in [docs/HOSTING.md](docs/HOSTING.md).
+The owner authorized making this repository public so GitHub Pages can serve `docs/` from `main`. The site is public at `https://s-siyanwal.github.io/bitter-solenoid-simulator/`. Private Pages would need Enterprise Cloud. Details are in [docs/HOSTING.md](docs/HOSTING.md).
 
 ## Physics summary
 

@@ -43,6 +43,9 @@ def main():
     fig.tight_layout()
     fig.savefig(os.path.join(figures, "fig6_emulation.png"), dpi=120)
     print(path)
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "update_report.py")
+    if os.path.isfile(script):
+        os.system("%s %s" % (sys.executable, script))
 
 
 if __name__ == "__main__":
