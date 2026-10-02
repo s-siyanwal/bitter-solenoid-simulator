@@ -320,9 +320,106 @@
     };
   }
 
+  function presets() {
+    return {
+      pdf_initial_guess: {
+        R1: 0.05, R2: 0.15, L: 0.8, d_plate: 0.002, d_ins: 0.00025, D_hole: 0.005,
+        v_flow: 2.5, pitch_factor: 2, T_in: 20, B0: 0.5, dsv: 0.03
+      },
+      seed1_optimum: {
+        R1: 0.05000755934750425, R2: 0.29999726655942893, L: 1.1019511068456953,
+        d_plate: 0.00598979191409142, d_ins: 0.00025, D_hole: 0.005915140047654358,
+        v_flow: 1.6973400741803273, pitch_factor: 7.961978105433783,
+        T_in: 20, B0: 0.5, dsv: 0.03
+      }
+    };
+  }
+
+  var PUBLISHED = {
+    optimum_to_85C_s: 4922,
+    pdf_guess_to_tsat_s: 479,
+    optimum_caption: "Published lumped time to 85 C at the seed-1 optimum. Not a boiling model.",
+    guess_caption: "PDF-guess adiabatic path to saturation, about 479 s. Invalid after boiling. Separate from the 4922 s figure."
+  };
+
+  function coarseLoops(R1, R2, L, C) {
+    var gr = gauss(4, R1, R2, 1), gz = gauss(6, -L / 2, L / 2, 2), loops = [], i, j;
+    for (i = 0; i < gr[0].length; i++)
+      for (j = 0; j < gz[0].length; j++) loops.push([gr[0][i], gz[0][j], C / gr[0][i] * gr[1][i] * gz[1][j]]);
+    return loops;
+  }
+
+  function fieldGrid(R1, R2, L, C, nRho, nZ) {
+    nRho = nRho || 22;
+    nZ = nZ || 16;
+    var loops = coarseLoops(R1, R2, L, C);
+    var rho = [], z = [], Bz = [], iz, ir, zz, rr, row;
+    var rMax = R2 * 1.05;
+    for (iz = 0; iz < nZ; iz++) {
+      zz = -0.55 * L + (1.1 * L) * iz / (nZ - 1);
+      z.push(zz);
+      row = [];
+      for (ir = 0; ir < nRho; ir++) {
+        rr = rMax * ir / (nRho - 1);
+        row.push(fieldLoops(loops, Math.max(rr, 0), zz)[1]);
+      }
+      Bz.push(row);
+    }
+    for (ir = 0; ir < nRho; ir++) rho.push(rMax * ir / (nRho - 1));
+    return { rho: rho, z: z, Bz: Bz, note: "Coarse Gauss-loop map for the figure. Homogeneity ppm still comes from evaluate()." };
+  }
+
+  function langevinCloud(o) {
+    var tau = o.tau, vd = o.v_d, T = o.T_C, seed = o.seed;
+    if (seed == null) throw new Error("seed is required");
+    var n = Math.max(8, Math.min(400, o.n || 80));
+    var steps = o.steps || 30;
+    var rng = mulberry32(seed >>> 0);
+    var dt = tau / 20;
+    var sig = Math.sqrt(2 * K_B * (T + 273.15) / (M_E * tau) * dt);
+    var v = [], i, s, mean = 0, m2 = 0;
+    for (i = 0; i < n; i++) v.push(gaussRand(rng) * Math.sqrt(K_B * (T + 273.15) / M_E));
+    for (s = 0; s < steps; s++) {
+      for (i = 0; i < n; i++) v[i] += -(v[i] / tau) * dt + (vd / tau) * dt + sig * gaussRand(rng);
+    }
+    for (i = 0; i < n; i++) { mean += v[i]; }
+    mean /= n;
+    for (i = 0; i < n; i++) m2 += (v[i] - mean) * (v[i] - mean);
+    return {
+      v: v, mean: mean, v_d: vd, stderr: Math.sqrt(m2 / n) / Math.sqrt(n),
+      label: LABEL,
+      note: "Seeded 1-D Langevin cloud inside one representative volume. Not a sample of the magnet."
+    };
+  }
+
+  function adiabaticTrace(r, pSite, nSteps) {
+    nSteps = nSteps || 240;
+    var alpha = 3.93e-3, Cth = r.mass * 385, T = r.Tcu;
+    var scale = r.P / (1 + alpha * (r.Tcu - 20));
+    var Tsat = tsatC(pSite || 101325);
+    var tEnd = 8000, dt = tEnd / 4000, t = 0, i, P;
+    var series = [], t85 = null, tTsat = null;
+    for (i = 0; i <= 4000; i++) {
+      if (i % Math.max(1, Math.floor(4000 / nSteps)) === 0) series.push([t, T]);
+      if (t85 === null && T >= 85) t85 = t;
+      if (T >= Tsat) { tTsat = t; series.push([t, T]); break; }
+      P = scale * (1 + alpha * (T - 20));
+      T += dt * P / Cth;
+      t += dt;
+    }
+    return {
+      series: series, t85_s: t85, tsat_s: tTsat, Tsat_C: Tsat,
+      published_optimum_to_85C_s: PUBLISHED.optimum_to_85C_s,
+      published_pdf_guess_to_tsat_s: PUBLISHED.pdf_guess_to_tsat_s,
+      note: "Adiabatic lumped trace for the sparkline. Interpretation stops at Tsat. The published 4922 s optimum figure is not this curve."
+    };
+  }
+
   var api = { evaluate: evaluate, bitterAxis: bitterAxis, fieldLoops: fieldLoops, swissRoll: swissRoll, snrGain: snrGain,
               ellipke: ellipke, loopField: loopField, MU0: MU0, drude: drude, johnson: johnson,
               coolantProps: coolantProps, catalogIds: catalogIds, requireMaterial: requireMaterial,
-              emulateFast: emulateFast, tsatC: tsatC, conductorSpec: conductorSpec, LABEL: LABEL };
+              emulateFast: emulateFast, tsatC: tsatC, conductorSpec: conductorSpec, LABEL: LABEL,
+              presets: presets, PUBLISHED: PUBLISHED, fieldGrid: fieldGrid, langevinCloud: langevinCloud,
+              adiabaticTrace: adiabaticTrace };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BitterSim = api;
 })(this);
