@@ -2,7 +2,7 @@
 
 The interactive demo is the pair `docs/index.html` and `docs/bittersim.js`. It has no build step and no server. Open `index.html` in a browser. The Python Monte Carlo (`python -m bittersim emulate`) is the reference. The page runs a capped, seeded subset (at most 300 draws) of the same formulas and says so on the emulation panel.
 
-This repository stays private unless you change that yourself. Nothing in the code enables GitHub Pages or changes repository visibility.
+The owner authorized a public repository so GitHub Pages can serve `docs/` from `main`. On GitHub Free and on Pro or Team the published site is public. Private Pages would need Enterprise Cloud. The interactive page is the demo. Do not treat `results/` figures as a substitute.
 
 ## GitHub Free
 

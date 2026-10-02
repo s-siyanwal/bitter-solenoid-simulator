@@ -1,0 +1,15 @@
+% Append-only. examples/update_report.py --append adds a paragraph.
+
+\paragraph{2026-10-02, emulation layer.}
+Separate catalog and mesoscopic emulation beside the continuum solver.
+Python tests for that layer passed with the web-demo parity tests (16, then the full tree reached 47).
+\texttt{examples/run\_all.py} reproduced the published seed-1 optimum.
+Numbers in the published optimum table were not replaced.
+The 50-draw, seed-1 emulation table is the PDF-guess comparison.
+
+\paragraph{2026-10-02, Pages demo.}
+Interactive \texttt{docs/index.html}: scaled plate drawing, coarse \(B_z\) map, presets, quantile bars, Langevin cloud, pump-failure sketch.
+Report files are \texttt{PROJECT\_REPORT.md} and this LaTeX tree.
+\texttt{examples/update\_report.py} rewrites \texttt{generated\_numbers.tex} whenever \texttt{run\_all.py} or \texttt{run\_emulation.py} finishes, and \texttt{--append} extends this changelog and \texttt{PROJECT\_REPORT.md}.
+\paragraph{2026-10-02.}
+Tests after the visual demo and the living report: 51 passed. Published continuum figures unchanged. PDF built locally from report/bitter\_solenoid\_report.tex (6 pages).
