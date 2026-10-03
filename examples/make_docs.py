@@ -69,13 +69,47 @@ FR = [
  ("R50", "RF SNR vs air for loss multiplier 1 / 10 / 50", "%.3f / %.3f / %.3f" % (rf["gain_vs_air_by_loss_multiplier"]["1.0"], rf["gain_vs_air_by_loss_multiplier"]["10.0"], rf["gain_vs_air"])),
  ("R51", "RF resistances with slab: coil / tissue / slab", "%.4f / %.4f / %.4f ohm" % (rf["slab"]["R_coil"], rf["slab"]["R_tissue"], rf["slab"]["R_slab"])),
 ]
-rmap = dict((r[0], r[2]) for r in R + VR + FR)
+
+PJ = json.load(open(os.path.join(ROOT, "results", "particles.json")))
+_pc = dict((r["key"], r) for r in PJ["comparison"])
+_pb = PJ["benchmark"]
+PR = [
+ ("R52", "Particle emulation: speedup on %d threads (field / carriers / walkers), serial == parallel bit-identical" % PJ["threads"],
+  "%.2fx / %.2fx / %.2fx, %s" % (_pb["field"]["speedup"], _pb["carriers"]["speedup"], _pb["walkers"]["speedup"], "yes" if all(v["bit_identical"] for v in _pb.values()) else "NO")),
+ ("R53", "Particle vs continuum: B0, P (relative difference)", "%.2e / %.2e" % (_pc["B0"]["rel_err"], _pc["P"]["rel_err"])),
+ ("R54", "Particle vs continuum: DSV homogeneity", "%.2f ppm vs %.2f ppm" % (_pc["ppm"]["particle"], _pc["ppm"]["continuum"])),
+ ("R55", "Carrier (Bloch-Gruneisen) vs linear resistivity at mean Cu T", "%+.3f %% (+/- %.3f %% stat.)" % (100 * _pc["rho_mean"]["rel_err"], 100 * _pc["rho_mean"]["stderr_rel"])),
+ ("R56", "Hot-spot copper T: particle / continuum", "%.3f / %.3f C" % (_pc["T_hot"]["particle"], _pc["T_hot"]["continuum"])),
+]
+
+
+def _g(v):
+    return "%.6g" % v
+
+
+def ptable():
+    h = "| quantity | continuum | particle | rel. difference | stat. error (1 sigma) | expected |\n|---|---|---|---|---|---|\n"
+    rows = []
+    for r in PJ["comparison"]:
+        se = "-" if r["stderr_rel"] is None else ("0 (deterministic)" if r["stderr_rel"] == 0 else "%.2e" % r["stderr_rel"])
+        rows.append("| %s [%s] | %s | %s | %+.2e | %s | %s |" % (r["label"], r["unit"], _g(r["continuum"]), _g(r["particle"]), r["rel_err"], se, r["expect"]))
+    return h + "\n".join(rows)
+
+
+def btable():
+    h = "| kernel | N | serial [s] | parallel [s] | speedup | identical |\n|---|---|---|---|---|---|\n"
+    names = [("field", "P1 current elements (Biot-Savart, 404 DSV points)"), ("moments", "P1 moments (NI, P)"),
+             ("carriers", "P2 carriers (Green-Kubo)"), ("walkers", "P3 heat walkers (Feynman-Kac)"),
+             ("tolerance_mc_processes", "emulate() tolerance MC, 8 processes")]
+    return h + "\n".join("| %s | %d | %.3f | %.3f | %.2fx | %s |" % (lab, _pb[k]["n"], _pb[k]["serial_s"], _pb[k]["parallel_s"], _pb[k]["speedup"], "yes" if _pb[k]["bit_identical"] else "NO") for k, lab in names)
+
+rmap = dict((r[0], r[2]) for r in R + VR + FR + PR)
 
 def rtable(rows):
     return "| ID | quantity | value |\n|---|---|---|\n" + "\n".join("| %s | %s | %s |" % r for r in rows)
 
 summary = open(os.path.join(ROOT, "examples", "summary_template.md")).read()
-summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR + FR)).replace("{{ENV}}", envs)
+summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR + FR + PR)).replace("{{ENV}}", envs)
 import sys
 CHECK = "--check" in sys.argv
 def _emit(name, text):
@@ -89,6 +123,14 @@ _emit("DESIGN_SUMMARY.md", summary)
 
 readme = open(os.path.join(ROOT, "examples", "readme_template.md")).read()
 readme = readme.replace("{{RESULTS_TABLE}}", rtable(R)).replace("{{FMRI_TABLE}}", rtable(FR)).replace("{{VALIDATION_TABLE}}", rtable(VR)).replace("{{ENV}}", envs)
+_pp = PJ["production"]
+readme = readme.replace("{{PARTICLES_ROWS}}", rtable(PR)).replace("{{PARTICLES_TABLE}}", ptable()).replace("{{PARTICLES_BENCH}}", btable())
+readme = readme.replace("{{P_FIELD_N}}", str(_pp["field_N"])).replace("{{P_CARRIERS_N}}", str(_pp["carriers_N"])).replace("{{P_WALKERS_N}}", str(_pp["walkers_N"]))
+readme = readme.replace("{{P_AXIS_INNER}}", "%.1e" % _pp["axis_rel_max_inner"]).replace("{{P_AXIS_ALL}}", "%.1e" % _pp["axis_rel_max_all"])
+readme = readme.replace("{{P_MC_MS}}", "%.1f" % (1e3 * _pb["tolerance_mc_processes"]["serial_s"] / _pb["tolerance_mc_processes"]["n"]))
+readme = readme.replace("{{P_B0_ERR}}", "%.1e" % _pc["B0"]["rel_err"]).replace("{{P_PPM_SAME}}", "%.2f" % _pp["ppm_loop_same_points"])
+readme = readme.replace("{{P_RHO_MODEL}}", "%+.1e" % _pc["rho_bg_model"]["rel_err"]).replace("{{P_RHO_SE}}", "%.1e" % _pc["rho_mean"]["stderr_rel"]).replace("{{P_RHO_85}}", "%+.2f %%" % (100 * _pc["rho_85"]["rel_err"]))
+readme = readme.replace("{{P_PPM_R15}}", "%.2f" % _pp["ppm_R15"]).replace("{{P_THETA}}", "%.0f" % _pp["theta_R"]).replace("{{P_RRR}}", "%.0f" % _pp["RRR"])
 readme = readme.replace("{{OPT_SECONDS}}", "%.0f" % D["optimiser"]["seconds"]).replace("{{NFEV}}", str(D["optimiser"]["de_nfev"]))
 _emit("README.md", readme)
 print("ok")

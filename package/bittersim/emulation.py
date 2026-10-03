@@ -397,13 +397,58 @@ def _fixed_current_B0(nominal, design):
     return MU_0 * C * (math.asinh(design.L / (2.0 * design.R1)) - math.asinh(design.L / (2.0 * design.R2)))
 
 
+
+def _eval_one(args):
+    job, dr = args
+    design = job["design"]
+    R1, R2, L, d_plate, D_hole, T_in, v_flow, rho_lot, _rc = dr
+    d_try = BitterDesign(
+        R1=R1, R2=R2, L=L, d_plate=d_plate, d_ins=design.d_ins, D_hole=D_hole,
+        v_flow=v_flow, pitch_factor=design.pitch_factor, T_in=T_in, B0=design.B0,
+        dsv=design.dsv, K_minor=design.K_minor, eta_pump=design.eta_pump)
+    B0_fixed_I = _fixed_current_B0({"I_A": job["nominal_I"]}, d_try)
+    d_try = BitterDesign(
+        R1=R1, R2=R2, L=L, d_plate=d_plate, d_ins=design.d_ins, D_hole=D_hole,
+        v_flow=v_flow, pitch_factor=design.pitch_factor, T_in=T_in, B0=B0_fixed_I,
+        dsv=design.dsv, K_minor=design.K_minor, eta_pump=design.eta_pump)
+    ev = evaluate_with_catalog(
+        d_try, job["conductor_id"], job["coolant_id"], job["insulator_id"], job["housing_id"], job["temper"],
+        job["T_amb"], job["p_site_Pa"], job["aerated"], job["conductive_bore"], False,
+        rho_scale=rho_lot, homogeneity=job["homogeneity"])
+    keep = ("R_total_ohm", "V_total_V", "P_elec_W", "T_in", "T_hot_C", "B0_numeric_T", "homogeneity_ppm",
+            "J_cu_inner_A_per_mm2", "rho_cu_mean", "T_cu_mean_C", "onb_margin_K", "sigma_hoop_max_MPa", "yield_Pa")
+    return {k: ev[k] for k in keep if k in ev}, B0_fixed_I
+
+
+def _map_realizations(job, draws, workers):
+    """Serial map for workers <= 1, else a spawn-based process pool with 1 Numba thread per worker."""
+    args = [(job, d) for d in draws]
+    if workers is None or int(workers) <= 1 or len(draws) < 2:
+        return [_eval_one(a) for a in args]
+    import multiprocessing as mp
+    ctx = mp.get_context("spawn")  # fork is unsafe once the OpenMP pool is live
+    with ctx.Pool(int(workers), initializer=_single_thread) as pool:
+        return pool.map(_eval_one, args, chunksize=max(1, len(args) // (4 * int(workers))))
+
+
+def _single_thread():
+    try:
+        import numba
+        numba.set_num_threads(1)
+    except Exception:
+        pass
+
+
 def emulate(design=None, realizations=200, seed=None, conductor_id="ofhc_cu",
             coolant_id="di_water", insulator_id="polyimide_kapton", housing_id="ss304",
             temper="hard", T_amb=20.0, p_site_Pa=101325.0, aerated=False,
             conductive_bore=False, radial_rho=False, f_lo=1.0, f_hi=1.0e4,
             contact_median_ohm=1.0e-6, contact_sigma_ln=1.0, hooge=False,
-            hooge_alpha=1.0e-3, kohler=True, kohler_a=1.0, homogeneity=True):
+            hooge_alpha=1.0e-3, kohler=True, kohler_a=1.0, homogeneity=True, workers=1):
     """Monte Carlo around a continuum design. Seed is required.
+
+    workers > 1 evaluates the realizations in a process pool. All random draws happen first,
+    in a fixed order, so the output is identical for any worker count.
 
     Scatter model (all approximate, stated in assumptions):
       geometry: normal, sigma 0.2 mm on R1 and R2, 0.5 mm on L
@@ -476,6 +521,9 @@ def emulate(design=None, realizations=200, seed=None, conductor_id="ofhc_cu",
     trip_onb = 0
     trip_stress = 0
     n_if_nom = max(1, int(round(nominal["n_turns"])) - 1)
+    # phase 1: draw every realization serially (fixed RandomState order, so results do not depend
+    # on the worker count); phase 2: evaluate in parallel; phase 3: aggregate in draw order.
+    draws = []
     for _i in range(int(realizations)):
         R1 = design.R1 + rs.normal(0.0, 2.0e-4)
         R2 = design.R2 + rs.normal(0.0, 2.0e-4)
@@ -489,30 +537,20 @@ def emulate(design=None, realizations=200, seed=None, conductor_id="ofhc_cu",
         v_flow = design.v_flow * (1.0 + rs.uniform(-0.10, 0.10))
         v_flow = max(0.05, v_flow)
         rho_lot = 1.0 + rs.uniform(-0.02, 0.02)
-        d_try = BitterDesign(
-            R1=R1, R2=R2, L=L, d_plate=d_plate, d_ins=design.d_ins, D_hole=D_hole,
-            v_flow=v_flow, pitch_factor=design.pitch_factor, T_in=T_in, B0=design.B0,
-            dsv=design.dsv, K_minor=design.K_minor, eta_pump=design.eta_pump)
-        B0_fixed_I = _fixed_current_B0(nominal, d_try)
-        d_try = BitterDesign(
-            R1=R1, R2=R2, L=L, d_plate=d_plate, d_ins=design.d_ins, D_hole=D_hole,
-            v_flow=v_flow, pitch_factor=design.pitch_factor, T_in=T_in, B0=B0_fixed_I,
-            dsv=design.dsv, K_minor=design.K_minor, eta_pump=design.eta_pump)
-        ev = evaluate_with_catalog(
-            d_try, conductor_id, coolant_id, insulator_id, housing_id, temper,
-            T_amb, p_site_Pa, aerated, conductive_bore, False,
-            rho_scale=rho_lot, homogeneity=homogeneity)
-        n_if = max(1, int(round(ev["n_turns"])) - 1)
-        # one log-normal draw per interface, median is the user setting
+        n_if = max(1, int(round(L / (d_plate + design.d_ins))) - 1)
         r_each = rs.lognormal(math.log(contact_median_ohm), contact_sigma_ln, size=n_if)
-        r_contact = float(np.sum(r_each))
+        draws.append((R1, R2, L, d_plate, D_hole, T_in, v_flow, rho_lot, float(np.sum(r_each))))
+    job = dict(design=design, nominal_I=nominal["I_A"], conductor_id=conductor_id, coolant_id=coolant_id,
+               insulator_id=insulator_id, housing_id=housing_id, temper=temper, T_amb=T_amb,
+               p_site_Pa=p_site_Pa, aerated=aerated, conductive_bore=conductive_bore, homogeneity=homogeneity)
+    evals = _map_realizations(job, draws, workers)
+    for (R1, R2, L, d_plate, D_hole, T_in, v_flow, rho_lot, r_contact), (ev, B0_fixed_I) in zip(draws, evals):
         scale = (ev["R_total_ohm"] + r_contact) / ev["R_total_ohm"]
         V = ev["V_total_V"] * scale
         P = ev["P_elec_W"] * scale
         T_hot = ev["T_in"] + (ev["T_hot_C"] - ev["T_in"]) * scale
         B0 = ev["B0_numeric_T"] if homogeneity else B0_fixed_I
         ppm = ev["homogeneity_ppm"] if homogeneity else float("nan")
-        rho_i = ev["rho_cu_mean"] * (1.0 + (drude_k["kohler_drho_over_rho"] if kohler else 0.0))
         J_i = ev["J_cu_inner_A_per_mm2"] * 1.0e6
         dru = drude_rve(J_i, ev["rho_cu_mean"], ev["T_cu_mean_C"], B0, cond["n_m3"],
                         d_plate, cond["v_fermi"], kohler=kohler, kohler_a=kohler_a)
@@ -531,8 +569,6 @@ def emulate(design=None, realizations=200, seed=None, conductor_id="ofhc_cu",
             trip_onb += 1
         if ev["sigma_hoop_max_MPa"] * 1e6 > 0.6 * ev["yield_Pa"]:
             trip_stress += 1
-        # rho_i kept so the Kohler-adjusted resistivity is not an unused local
-        _ = rho_i
 
     nreal = float(realizations)
     percentiles = {

@@ -18,7 +18,8 @@ package/bittersim/   simulation package
   inductance.py      Maxwell mutual inductance, winding self-inductance, Nagaoka check
   design.py          coupled electrical / thermal / hydraulic evaluation of a design
   catalog.py         material allow-list (conductors, coolants, insulators, housings)
-  emulation.py       mesoscopic emulation (Drude RVE, contact scatter, ONB flags); not molecular dynamics
+  emulation.py       mesoscopic emulation (Drude RVE, contact scatter, ONB flags; tolerance MC with workers=n); not molecular dynamics
+  particles.py       parallel particle emulation: Biot-Savart current elements, Green-Kubo carriers, Feynman-Kac heat walkers
   thermal.py         Re, Pr, Dittus-Boelter, Gnielinski, friction, pressure drop, hot spot, lumped transient
   mechanics.py       Lorentz force, hoop stress, axial compression
   swissroll.py       Pendry/Lorentzian mu_eff, skin-effect losses, heuristic SNR gain
@@ -31,7 +32,7 @@ package/bittersim/   simulation package
 tests/               pytest: analytic limits, convergence, energy balance, web-demo parity, emulation
 notebooks/           Colab/Jupyter notebook with ipywidgets sliders
 docs/                static web demo (index.html + bittersim.js), no install needed
-examples/            run_all.py (reproduces all results/figures), run_fmri.py (fMRI layer), make_docs.py, run_emulation.py
+examples/            run_all.py (reproduces all results/figures), run_fmri.py (fMRI layer), make_docs.py, run_emulation.py, run_particles.py
 figures/ results/    generated outputs
 VALIDATION.md        validation tables and plots    DESIGN_SUMMARY.md  equation-labelled summary for review
 EMULATION.md         mesoscopic emulation grades, formulas, and non-goals
@@ -71,7 +72,7 @@ Open `docs/index.html` in any browser, including from a file URL. It is a plain-
 
 ### Simulation vs emulation
 
-`evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~2575 kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md).
+`evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~2575 kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md). `particles.py` (Numba-parallel current elements, carriers and heat walkers) re-derives the continuum numbers from particles; see 'Particle emulation vs continuum simulation' below.
 
 The owner authorized making this repository public so GitHub Pages can serve `docs/` from `main`. The site is public at `https://s-siyanwal.github.io/bitter-solenoid-simulator/`. Private Pages would need Enterprise Cloud. Details are in [docs/HOSTING.md](docs/HOSTING.md).
 
@@ -116,6 +117,36 @@ How to read these numbers:
 - **Not done.** Tesseral terms from the helical current path are not computed. The segment engine could compute them, but this release does not.
 
 ![fmri](figures/fig7_fmri.png)
+
+## Particle emulation vs continuum simulation
+
+`examples/run_particles.py` writes `results/particles.json`, `figures/fig8_particles.png` and `figures/fig9_particle_convergence.png` for the seed-1 optimum. The code is in `package/bittersim/particles.py`. It is **not molecular dynamics**: the magnet holds about 10^28 atoms. Instead, three particle estimators each solve the same physics as one continuum formula, so each pair can be compared:
+
+- **P1, current elements.** {{P_FIELD_N}} samples × 32 Biot–Savart point elements (rings of 16 plus the z-mirror) give B on the axis and on the 30 mm DSV. The same samples give NI, P, R and V. Continuum counterparts: E4, the exact loop model, and E31.
+- **P2, conduction carriers.** {{P_CARRIERS_N}} classical carriers follow an exact Ornstein–Uhlenbeck velocity process with relaxation time τ(T). The Einstein (Green–Kubo) relation σ = n e² D / (kT) turns this into ρ. τ(T) comes from a Bloch–Grüneisen lattice model (Θ_R = {{P_THETA}} K and RRR = {{P_RRR}}, both assumptions) calibrated to ρ(20 °C) = 1.68e-8 Ω m. The continuum uses a linear ρ(T).
+- **P3, heat walkers.** {{P_WALKERS_N}} 2-D Bessel random walks run from the hot cell's edge to the cooling-hole wall. Feynman–Kac turns their mean exit time into the conduction rise. Continuum counterpart: E18.
+
+**Parallelism.** All kernels use Numba `prange`. Each particle owns a counter-based random stream (splitmix64 keyed by seed and index), and reductions are summed serially in fixed chunks. As a result, serial and parallel runs are bit-identical, and the run script checks this with `np.array_equal`. `emulate(..., workers=n)` draws every random number first, then evaluates the tolerance realizations in a spawn process pool, so its output is identical for any worker count. Each realization takes {{P_MC_MS}} ms serially, so process start-up dominates at this size (measured speedup in the last row below). The particle kernels are where the parallel speedup lives.
+
+{{PARTICLES_BENCH}}
+
+{{PARTICLES_TABLE}}
+
+{{PARTICLES_ROWS}}
+
+**Where they must agree, and where they should not:**
+- **Agree to estimator error** (same equations, different numerical method): B on the axis, NI, I, R, V, P at the same ρ, and the conduction rise at the same heat source.
+  - B0 at the isocentre agrees exactly, by construction. The P1 sampling density equals the E4 integrand, so that estimator has zero variance. B0 is therefore an implementation check, not an independent test. The residual {{P_B0_ERR}} is the loop model's own quadrature error against E4. The independent tests are the off-centre axis points and the DSV.
+  - The axis error is largest near the coil ends: {{P_AXIS_INNER}} max for |z| ≤ 0.4 L, and {{P_AXIS_ALL}} including the ends. That is where the importance density is worst.
+  - V = P / I, so the shared ⟨1/r⟩ error cancels in V.
+- **Homogeneity.** The ppm figure needs about 1e-7 relative field accuracy, so it converges slowly with N (fig9). The continuum reference is the loop model evaluated on the same 404 points ({{P_PPM_SAME}} ppm; R15 reports {{P_PPM_R15}} ppm).
+- **Should differ (different physics):**
+  - ρ(T). The Bloch–Grüneisen slope at 20 °C differs from the linear α = 0.00393 1/K. The power and hot-spot temperature differ accordingly. Between 21 and 26 °C the model gap is small ({{P_RHO_MODEL}} at the mean Cu temperature), smaller than the 1e6-carrier sampling error ({{P_RHO_SE}}). It grows to {{P_RHO_85}} at the 85 °C trip limit.
+  - The emulated hot spot still takes the water rise and film drop from the continuum correlations, rescaled by the carrier ρ. Only conduction and resistivity come from particles.
+- **Neither model includes:** contact and joint resistance, the helical current path, or turbulence. Classical carriers reproduce Drude σ under the relaxation-time approximation. Quantum (Fermi–Dirac) statistics change v_F and the mean free path, not σ.
+
+![particles](figures/fig8_particles.png)
+![particle convergence](figures/fig9_particle_convergence.png)
 
 ## Validation (details in [VALIDATION.md](VALIDATION.md))
 

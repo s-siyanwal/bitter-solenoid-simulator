@@ -1,0 +1,423 @@
+{
+ "benchmark": {
+  "carriers": {
+   "bit_identical": true,
+   "n": 200000,
+   "parallel_s": 1.4253716468811035,
+   "serial_s": 10.783505201339722,
+   "speedup": 7.565398978529858
+  },
+  "field": {
+   "bit_identical": true,
+   "n": 16384,
+   "parallel_s": 0.7469174861907959,
+   "serial_s": 4.907970905303955,
+   "speedup": 6.570968006565375
+  },
+  "moments": {
+   "bit_identical": true,
+   "n": 4194304,
+   "parallel_s": 0.01421809196472168,
+   "serial_s": 0.06886053085327148,
+   "speedup": 4.843162572314916
+  },
+  "tolerance_mc_processes": {
+   "bit_identical": true,
+   "n": 2000,
+   "parallel_s": 12.108697175979614,
+   "serial_s": 11.967000007629395,
+   "speedup": 0.9882979013934456
+  },
+  "walkers": {
+   "bit_identical": true,
+   "n": 40000,
+   "parallel_s": 2.223069906234741,
+   "serial_s": 17.62879228591919,
+   "speedup": 7.929931594358827
+  }
+ },
+ "comparison": [
+  {
+   "continuum": 0.4999999989772686,
+   "expect": "agree",
+   "key": "B0",
+   "label": "Isocentre field B0",
+   "particle": 0.500000000000517,
+   "rel_err": 2.046496865049589e-09,
+   "stderr_rel": 0.0,
+   "unit": "T"
+  },
+  {
+   "continuum": 0.4845164576630431,
+   "expect": "agree",
+   "key": "Bz_quarter",
+   "label": "Bz on axis at z = 0.275 m (L/4)",
+   "particle": 0.48454135884424426,
+   "rel_err": 5.139388106916341e-05,
+   "stderr_rel": null,
+   "unit": "T"
+  },
+  {
+   "continuum": 0.25686916836586865,
+   "expect": "agree (slow MC)",
+   "key": "Bz_end",
+   "label": "Bz on axis at coil end z = L/2",
+   "particle": 0.2567041722904928,
+   "rel_err": -0.000642335070516656,
+   "stderr_rel": null,
+   "unit": "T"
+  },
+  {
+   "continuum": 99.950246809442,
+   "expect": "agree (needs ~1e-7 rel. accuracy)",
+   "key": "ppm",
+   "label": "Homogeneity over 30 mm DSV",
+   "particle": 99.73437111910577,
+   "rel_err": -0.0021598314884385054,
+   "stderr_rel": null,
+   "unit": "ppm"
+  },
+  {
+   "continuum": 454948.48024404683,
+   "expect": "agree",
+   "key": "NI",
+   "label": "Ampere-turns NI",
+   "particle": 454948.6063461243,
+   "rel_err": 2.7717880806200426e-07,
+   "stderr_rel": null,
+   "unit": "A"
+  },
+  {
+   "continuum": 2576.1431979327326,
+   "expect": "agree",
+   "key": "I",
+   "label": "Current I = NI / n_turns",
+   "particle": 2576.143911985034,
+   "rel_err": 2.771788081362332e-07,
+   "stderr_rel": null,
+   "unit": "A"
+  },
+  {
+   "continuum": 0.0017635387114512799,
+   "expect": "agree",
+   "key": "R",
+   "label": "Resistance (rho at mean Cu T)",
+   "particle": 0.001763538222635857,
+   "rel_err": -2.7717873140160516e-07,
+   "stderr_rel": null,
+   "unit": "ohm"
+  },
+  {
+   "continuum": 4.543128255796271,
+   "expect": "agree",
+   "key": "V",
+   "label": "Supply voltage",
+   "particle": 4.543128255796271,
+   "rel_err": 0.0,
+   "stderr_rel": null,
+   "unit": "V"
+  },
+  {
+   "continuum": 11703.748953505561,
+   "expect": "agree",
+   "key": "P",
+   "label": "Joule power (rho at mean Cu T)",
+   "particle": 11703.752197536747,
+   "rel_err": 2.771788081751402e-07,
+   "stderr_rel": null,
+   "unit": "W"
+  },
+  {
+   "continuum": 1.6859459272853145e-08,
+   "expect": "differ (model)",
+   "key": "rho_mean",
+   "label": "Resistivity at mean Cu T (20.901 C), carriers + Bloch-Gruneisen",
+   "particle": 1.687377201660512e-08,
+   "rel_err": 0.0008489444127678744,
+   "stderr_rel": 0.001412287030711505,
+   "unit": "ohm m"
+  },
+  {
+   "continuum": 1.6859459272853145e-08,
+   "expect": "differ (model)",
+   "key": "rho_bg_model",
+   "label": "Bloch-Gruneisen rho at mean Cu T (model value, no sampling noise)",
+   "particle": 1.685865596609972e-08,
+   "rel_err": -4.76472430356401e-05,
+   "stderr_rel": 0.0,
+   "unit": "ohm m"
+  },
+  {
+   "continuum": 2.109156e-08,
+   "expect": "differ (model)",
+   "key": "rho_85",
+   "label": "rho at 85 C (trip limit): Bloch-Gruneisen vs linear",
+   "particle": 2.0992971568387336e-08,
+   "rel_err": -0.0046743072400838755,
+   "stderr_rel": 0.0,
+   "unit": "ohm m"
+  },
+  {
+   "continuum": 11703.748953505561,
+   "expect": "differ (model)",
+   "key": "P_bg",
+   "label": "Joule power with carrier resistivity",
+   "particle": 11713.684785788077,
+   "rel_err": 0.0008489444127678014,
+   "stderr_rel": 0.001412287030711505,
+   "unit": "W"
+  },
+  {
+   "continuum": 0.00393,
+   "expect": "differ (model)",
+   "key": "alpha",
+   "label": "d(rho)/dT / rho20 at 20 C",
+   "particle": 0.0038775189394384736,
+   "rel_err": -0.013353959430413936,
+   "stderr_rel": 0.0,
+   "unit": "1/K"
+  },
+  {
+   "continuum": 0.6750909088077385,
+   "expect": "agree",
+   "key": "dT_cond",
+   "label": "Hot-cell conduction rise (same q_v)",
+   "particle": 0.674711232328951,
+   "rel_err": -0.0005624079273382409,
+   "stderr_rel": 0.002860650984464682,
+   "unit": "K"
+  },
+  {
+   "continuum": 25.94553260879723,
+   "expect": "differ slightly (model)",
+   "key": "T_hot",
+   "label": "Hot-spot copper temperature (carrier rho + walkers)",
+   "particle": 25.94595645030349,
+   "rel_err": 1.6335818294896523e-05,
+   "stderr_rel": null,
+   "unit": "C"
+  },
+  {
+   "continuum": 25.94553260879723,
+   "expect": "differ slightly (model)",
+   "key": "T_hot_bg",
+   "label": "Hot-spot copper temperature (Bloch-Gruneisen rho, walkers)",
+   "particle": 25.943148541930412,
+   "rel_err": -9.18873743223441e-05,
+   "stderr_rel": null,
+   "unit": "C"
+  }
+ ],
+ "convergence": {
+  "carriers": [
+   {
+    "N": 1000,
+    "rho_rel": 0.027157345820701395,
+    "stderr_rel": 0.04612378090578609
+   },
+   {
+    "N": 4000,
+    "rho_rel": 0.05183200514300357,
+    "stderr_rel": 0.022055109194230486
+   },
+   {
+    "N": 16000,
+    "rho_rel": 0.004122605888311814,
+    "stderr_rel": 0.01107163212849797
+   },
+   {
+    "N": 64000,
+    "rho_rel": 0.003001262318089837,
+    "stderr_rel": 0.005559461976925703
+   },
+   {
+    "N": 256000,
+    "rho_rel": 0.004641282292363158,
+    "stderr_rel": 0.002794227087800454
+   },
+   {
+    "N": 1000000,
+    "rho_rel": 0.00029592725517935126,
+    "stderr_rel": 0.0014153620309284708
+   }
+  ],
+  "field": [
+   {
+    "B0_rel": 2.046192770777111e-09,
+    "N": 1024,
+    "axis_rel_max_all": 0.11830094896928711,
+    "axis_rel_max_inner": 0.08777940897526448,
+    "ppm": 33.220958768318724,
+    "seconds": 0.04267621040344238
+   },
+   {
+    "B0_rel": 2.0463453154206945e-09,
+    "N": 2048,
+    "axis_rel_max_all": 0.16668572057601205,
+    "axis_rel_max_inner": 0.04379445156775463,
+    "ppm": 42.95903678737762,
+    "seconds": 0.09239983558654785
+   },
+   {
+    "B0_rel": 2.046421476720184e-09,
+    "N": 4096,
+    "axis_rel_max_all": 0.09233026451648596,
+    "axis_rel_max_inner": 0.016997145144021397,
+    "ppm": 95.47395768252095,
+    "seconds": 0.16746735572814941
+   },
+   {
+    "B0_rel": 2.046459446347626e-09,
+    "N": 8192,
+    "axis_rel_max_all": 0.03508429819053116,
+    "axis_rel_max_inner": 0.015230856268123372,
+    "ppm": 89.50664210129983,
+    "seconds": 0.37969422340393066
+   },
+   {
+    "B0_rel": 2.0464785421836496e-09,
+    "N": 16384,
+    "axis_rel_max_all": 0.02080586033803211,
+    "axis_rel_max_inner": 0.013730460977130932,
+    "ppm": 99.27279804334741,
+    "seconds": 0.7604570388793945
+   },
+   {
+    "B0_rel": 2.0464880901016613e-09,
+    "N": 32768,
+    "axis_rel_max_all": 0.011631060323582632,
+    "axis_rel_max_inner": 0.0023488063452089536,
+    "ppm": 98.28976994531362,
+    "seconds": 1.3501389026641846
+   },
+   {
+    "B0_rel": 2.0464927530383648e-09,
+    "N": 65536,
+    "axis_rel_max_all": 0.0028711631938868054,
+    "axis_rel_max_inner": 0.0027179473134404386,
+    "ppm": 99.41998425767348,
+    "seconds": 2.8090415000915527
+   },
+   {
+    "B0_rel": 2.046495195529019e-09,
+    "N": 131072,
+    "axis_rel_max_all": 0.0012961399318118794,
+    "axis_rel_max_inner": 0.0009389642870745174,
+    "ppm": 99.47643703545896,
+    "seconds": 6.007816791534424
+   },
+   {
+    "B0_rel": 2.0464963057520436e-09,
+    "N": 262144,
+    "axis_rel_max_all": 0.0022025333789204016,
+    "axis_rel_max_inner": 0.00022679556266891332,
+    "ppm": 100.15469718183876,
+    "seconds": 11.44878363609314
+   },
+   {
+    "B0_rel": 2.0464969718858583e-09,
+    "N": 524288,
+    "axis_rel_max_all": 0.0006423350705166975,
+    "axis_rel_max_inner": 0.0001377600309728777,
+    "ppm": 99.73437111910577,
+    "seconds": 21.960630416870117
+   }
+  ],
+  "moments": [
+   {
+    "N": 256,
+    "NI_rel": 0.004453155415373056,
+    "P_rel": 0.004453155415373278
+   },
+   {
+    "N": 1024,
+    "NI_rel": 0.0011297684545441555,
+    "P_rel": 0.0011297684545443776
+   },
+   {
+    "N": 4096,
+    "NI_rel": 0.0002834833495568567,
+    "P_rel": 0.0002834833495573008
+   },
+   {
+    "N": 16384,
+    "NI_rel": 7.093609239272602e-05,
+    "P_rel": 7.093609239294807e-05
+   },
+   {
+    "N": 65536,
+    "NI_rel": 1.773810432048606e-05,
+    "P_rel": 1.773810432048606e-05
+   },
+   {
+    "N": 262144,
+    "NI_rel": 4.4347811998246556e-06,
+    "P_rel": 4.4347812000467e-06
+   },
+   {
+    "N": 1048576,
+    "NI_rel": 1.1087112457008885e-06,
+    "P_rel": 1.1087112459229331e-06
+   },
+   {
+    "N": 4194304,
+    "NI_rel": 2.771788081279425e-07,
+    "P_rel": 2.771788081279425e-07
+   }
+  ],
+  "walkers": [
+   {
+    "N": 100,
+    "dT_rel": 0.04514970612160418,
+    "stderr_rel": 0.09108073140833045
+   },
+   {
+    "N": 400,
+    "dT_rel": 0.025541923187080817,
+    "stderr_rel": 0.04288168853104897
+   },
+   {
+    "N": 1600,
+    "dT_rel": 0.010055481090301965,
+    "stderr_rel": 0.02346188488985224
+   },
+   {
+    "N": 6400,
+    "dT_rel": 0.014414946236170678,
+    "stderr_rel": 0.01162088615562652
+   },
+   {
+    "N": 25600,
+    "dT_rel": 0.00633935732044999,
+    "stderr_rel": 0.005713289406971723
+   },
+   {
+    "N": 100000,
+    "dT_rel": 0.0010374631225673614,
+    "stderr_rel": 0.002882040680804581
+   }
+  ]
+ },
+ "cpu_count": 8,
+ "design": "seed-1 optimum (results/results.json)",
+ "production": {
+  "E18_at_continuum_qv": 0.6750909088077385,
+  "RRR": 100.0,
+  "T_hot_em_fixed_point_bg": 25.943148541930412,
+  "axis_rel_max_all": 0.0006423350705166975,
+  "axis_rel_max_inner": 0.0001377600309728777,
+  "carriers_N": 1000000,
+  "dT_cond_R21": 0.6750909088076973,
+  "field_N": 524288,
+  "moments_N": 4194304,
+  "ppm_R15": 99.95089529329752,
+  "ppm_loop_same_points": 99.950246809442,
+  "rho_hot_bg": 1.7186751429288246e-08,
+  "rho_hot_em": 1.7194871506197647e-08,
+  "rho_hot_stderr_rel": 0.0014135842564495674,
+  "theta_R": 343.0,
+  "walkers_N": 100000
+ },
+ "quick": false,
+ "threads": 8
+}

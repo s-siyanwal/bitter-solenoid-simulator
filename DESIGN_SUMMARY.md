@@ -115,6 +115,11 @@ Equations are E1–E32 and results R1–R40. All R values come from `examples/ru
 | R49 | RF SNR, Swiss-roll slab vs same coil over air / vs coil on tissue (loss x50, best tuning f0/f_L) | 1.503 / 0.255 (f0/f_L = 1.0550, mu = 5.78 + 0.44j) |
 | R50 | RF SNR vs air for loss multiplier 1 / 10 / 50 | 3.231 / 2.366 / 1.503 |
 | R51 | RF resistances with slab: coil / tissue / slab | 0.0356 / 0.0359 / 0.1354 ohm |
+| R52 | Particle emulation: speedup on 8 threads (field / carriers / walkers), serial == parallel bit-identical | 6.57x / 7.57x / 7.93x, yes |
+| R53 | Particle vs continuum: B0, P (relative difference) | 2.05e-09 / 2.77e-07 |
+| R54 | Particle vs continuum: DSV homogeneity | 99.73 ppm vs 99.95 ppm |
+| R55 | Carrier (Bloch-Gruneisen) vs linear resistivity at mean Cu T | +0.085 % (+/- 0.141 % stat.) |
+| R56 | Hot-spot copper T: particle / continuum | 25.946 / 25.946 C |
 
 **At the optimum:**
 - Homogeneity, R1 and R2 limits are active, and Re is at its floor.
