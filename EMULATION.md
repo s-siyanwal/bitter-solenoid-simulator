@@ -83,6 +83,16 @@ The continuum optimum is unchanged. Evaluations carry a `warnings` list instead 
 7. Interactive output lists constraints that sit on their bounds.
 8. There is no FEniCS model.
 
+## Parallel particle emulation (`particles.py`)
+
+A second, particle-level layer re-derives continuum results with particle estimators. It reports the difference from the continuum rather than replacing it:
+
+- **P1:** Biot–Savart current elements give B0, the axis field, DSV homogeneity, NI, P, R and V.
+- **P2:** Ornstein–Uhlenbeck conduction carriers give ρ(T) through the Green–Kubo / Einstein relation, with τ(T) from Bloch–Grüneisen. Θ_R = 343 K and RRR = 100 are assumptions.
+- **P3:** Feynman–Kac heat walkers give the hot-cell conduction rise (E18).
+
+All three use Numba `prange` with per-particle counter-based random streams, so the serial and parallel builds are bit-identical. `emulate(..., workers=n)` runs the tolerance Monte Carlo in a process pool and gives identical output for any `n`. `examples/run_particles.py` writes `results/particles.json` and figures 8 and 9. The README section "Particle emulation vs continuum simulation" holds the generated comparison and benchmark tables, and states which quantities must agree and which differ for physical reasons. Grade: established for P1 and P3 (exact estimators of the same equations). P2 is approximate, because the Bloch–Grüneisen τ(T) is a model; the carrier ensemble itself is an unbiased estimator.
+
 ## Non-goals
 
 - Molecular dynamics, DFT, or a particle simulation of the whole magnet.
