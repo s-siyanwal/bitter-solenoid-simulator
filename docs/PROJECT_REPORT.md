@@ -79,7 +79,7 @@ python examples/run_emulation.py
 python examples/run_all.py
 ```
 
-Open `docs/index.html` with no network. Presets: "PDF initial guess" and "seed-1 optimum".
+Open `docs/demo.html` with no network (`docs/index.html` is the overview page). Presets: "PDF initial guess" and "seed-1 optimum".
 
 ## Changelog
 
@@ -93,7 +93,7 @@ Tests: 47 passed on the full tree after the missing modules were present (`pytho
 
 ### 2026-10-02 — Pages demo and living report
 
-Files: `docs/index.html`, `docs/bittersim.js`, `docs/PROJECT_REPORT.md`, `report/bitter_solenoid_report.tex`, `examples/update_report.py`, `PROJECT_REPORT.md`, tests.
+Files: `docs/index.html`, `docs/demo.html`, `docs/bittersim.js`, `docs/PROJECT_REPORT.md`, `report/bitter_solenoid_report.tex`, `examples/update_report.py`, `PROJECT_REPORT.md`, tests.
 What changed: one-page visual demo (scaled stack, Bz map, presets, quantile bars, Langevin cloud, pump-failure sketch with separate 4922 s and 479 s captions) and this report, which regenerates its number tables when results scripts run.
 Algorithms: no change to the continuum optimum or to the Python Monte Carlo. Browser field map is a coarse loop grid for drawing only. ppm still comes from `evaluate`.
 Numbers: unchanged from the tables above.

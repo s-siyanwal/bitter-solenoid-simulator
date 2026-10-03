@@ -84,8 +84,16 @@ def test_js_presets_match_printed_precision():
     assert round(out["oFlow"] + 1e-12, 1) == 321.8
 
 
-def test_demo_page_labels():
+def test_landing_page_links_demo_and_explains_basics():
     html = open(os.path.join(DOCS, "index.html")).read()
+    for needle in ('href="demo.html"', "1/r", "slit", "cooling holes", "Lorentz force"):
+        assert needle in html, needle
+    assert "bittersim.js" not in html          # the landing page stays static and light
+
+
+def test_demo_page_labels():
+    html = open(os.path.join(DOCS, "demo.html")).read()
+    assert "Advanced (work in progress)" in html and '<details class="adv" id="advanced">' in html
     for needle in (
         "Mesoscopic emulation, not molecular dynamics",
         "PDF initial guess",
