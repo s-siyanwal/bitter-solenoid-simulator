@@ -90,7 +90,7 @@ Equations are E1–E32 and results R1–R40. All R values come from `examples/ru
 | R24 | Max hoop stress (E21, field profile) / simple bound C B0/lambda | 0.1176 / 0.1214 MPa |
 | R25 | Axial compressive force on each half | 3656 N |
 | R26 | Inductance / stored energy / L/R time constant | 1.1589 mH / 3846 J / 0.657 s |
-| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C | 29.8 s / 4922 s |
+| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C: lumped mean / hot-spot adiabatic bound | 54.3 s / 4922 s / 453 s |
 | R28 | Copper mass | 2575 kg |
 | R29 | Larmor frequency at 0.5 T | 21.288739 MHz |
 | R30 | Swiss roll tuned exactly to f_L: mu_eff(f_L), Q | 1.000 + 52.81j, Q = 96.8 |

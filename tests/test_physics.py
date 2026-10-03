@@ -112,3 +112,32 @@ def test_axial_force_compressive():
 def test_transient_steady_state():
     t, T = thermal.transient_lumped(1000.0, 0.0, 1e4, 0.01, 25.0, t_end=2000.0)
     assert T[-1] == pytest.approx(25.0 + 1000.0 * 0.01, rel=1e-6)
+
+
+def test_lumped_time_constant_against_true_steady_state():
+    """R27/E19: tau = C_th/(1/R_th - alpha P20); the 63 % point must use the true steady
+    state (the published 29.8 s used T(60 s) as the 'steady state'; analytic is ~54.3 s)."""
+    import math
+    from bittersim.constants import ALPHA_CU
+    P20, C_th, R_th = 11662.47, 991509.5, 5.46278e-5
+    res = {"P20_W": P20, "C_th_J_K": C_th, "R_th_K_W": R_th, "T_in": 20.0, "dT_water_mixed_K": 0.5224,
+           "T_hot_C": 25.95, "J_cu_inner_A_per_mm2": 4.856}
+    tau = thermal.lumped_time_constant(P20, ALPHA_CU, C_th, R_th)
+    assert tau == pytest.approx(C_th / (1.0 / R_th - ALPHA_CU * P20), rel=1e-12)
+    s = thermal.transient_summary(res, ALPHA_CU)
+    assert s["transient_tau63_s"] == pytest.approx(tau, rel=2e-3)
+    assert s["transient_tau63_s"] == pytest.approx(54.3, rel=3e-3)
+    assert thermal.lumped_time_constant(2.0 / ALPHA_CU, ALPHA_CU, 1.0, 1.0) == float("inf")
+
+
+def test_hotspot_adiabatic_bound_is_conservative():
+    """J ~ 1/r: local heating at R1 is far faster than the stack-average lumped estimate."""
+    from bittersim.constants import ALPHA_CU, RHO_CU_20, DENS_CU, CP_CU
+    J = 4.856e6
+    t = thermal.adiabatic_time_to(85.0, 25.95, RHO_CU_20, ALPHA_CU, J, DENS_CU, CP_CU)
+    # closed form vs direct integration of dens cp dT/dt = rho(T) J^2
+    from scipy.integrate import quad
+    t_num = quad(lambda T: DENS_CU * CP_CU / (RHO_CU_20 * (1 + ALPHA_CU * (T - 20.0)) * J ** 2), 25.95, 85.0)[0]
+    assert t == pytest.approx(t_num, rel=1e-9)
+    assert t < 4922.0 / 5.0
+    assert thermal.adiabatic_time_to(20.0, 25.0, RHO_CU_20, ALPHA_CU, J, DENS_CU, CP_CU) == 0.0

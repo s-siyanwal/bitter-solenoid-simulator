@@ -55,9 +55,9 @@ python examples/run_all.py && python examples/make_docs.py   # regenerate everyt
 
 ### Open in Colab
 
-The repository is **private**, so the usual "Open in Colab" badge link will not work for other people. To use it in Colab:
+The repository is currently **public** (see the Pages note below). To use it in Colab:
 1. Upload `notebooks/bitter_solenoid_realtime.ipynb` (File → Upload notebook).
-2. Make the repo available in the session, either by uploading the repo folder or zip, or with `!git clone https://<TOKEN>@github.com/s-siyanwal/bitter-solenoid-simulator.git`.
+2. Make the repo available in the session, either by uploading the repo folder or zip, or with `!git clone https://github.com/s-siyanwal/bitter-solenoid-simulator.git`.
 3. Run all cells.
 
 Kaggle works the same way: add the repo as a dataset.
