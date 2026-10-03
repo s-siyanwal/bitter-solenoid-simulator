@@ -61,7 +61,7 @@ FR = [
  ("R42", "Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs", "%.2f -> %.3f ppm / %.2f -> %.3f ppm" % (s3["ppm_unshimmed"], s3["ppm_shimmed"], s4["ppm_unshimmed"], s4["ppm_shimmed"])),
  ("R43", "Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed)", "%.1f mm, +-%.1f / +-%.1f mm, %.2f / %.2f A, %.3f W" % (s3["shim_radius_m"] * 1e3, s3["shim_z_m"][0] * 1e3, s3["shim_z_m"][1] * 1e3, s3["shim_NI_A"][0], s3["shim_NI_A"][1], s3["shim_power_W"])),
  ("R44", "Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21", "%.3f / %.4f ppm" % (tol["A11"], tol["B21"])),
- ("R45", "Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on grid)", "R2 %.0f mm, L %.0f mm, P %.1f kW + pump %.2f kW, %.2f V, %.0f A, %.1f t Cu, %.0f L/min, %.0f -> %.2f ppm, T_hot %.2f C%s" % (hp["R2"] * 1e3, hp["L"] * 1e3, hp["P_elec_W"] / 1e3, hp["P_pump_W"] / 1e3, hp["V_total_V"], hp["I_A"], hp["mass_cu_kg"] / 1e3, hp["flow_L_min"], hp["ppm_unshimmed"], hp["ppm_shimmed"], hp["T_hot_C"], " (violates 8 V)" if hp["violates_8V_supply"] else "")),
+ ("R45", "Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on the old R2 <= 0.7 m grid, see R60 for the optimiser)", "R2 %.0f mm, L %.0f mm, P %.1f kW + pump %.2f kW, %.2f V, %.0f A, %.1f t Cu, %.0f L/min, %.0f -> %.2f ppm, T_hot %.2f C%s" % (hp["R2"] * 1e3, hp["L"] * 1e3, hp["P_elec_W"] / 1e3, hp["P_pump_W"] / 1e3, hp["V_total_V"], hp["I_A"], hp["mass_cu_kg"] / 1e3, hp["flow_L_min"], hp["ppm_unshimmed"], hp["ppm_shimmed"], hp["T_hot_C"], " (violates 8 V)" if hp["violates_8V_supply"] else "")),
  ("R46", "Field drift vs copper temperature at fixed current (numeric, isotropic expansion)", "%.3f ppm/K" % (F["alpha_B_per_K_numeric"] * 1e6)),
  ("R47", "B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total", "%.3f / %.3f / %.3f / %.3f ppm (%.1f Hz at f_L); voltage-regulated total %.1f ppm" % (cb["psu_ripple"], cb["psu_drift"], cb["thermal_expansion"], cb["total"], st["current"]["budget_Hz"]["total"], vb["total"])),
  ("R48", "Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode)", "%.4f / %.2e K ; %.4f / %.2e K" % (rq["max_copper_dT_K_current_mode"], rq["max_copper_dT_K_voltage_mode"], rq["max_water_amp_K_current_mode"], rq["max_water_amp_K_voltage_mode"])),
@@ -103,13 +103,96 @@ def btable():
              ("tolerance_mc_processes", "emulate() tolerance MC, 8 processes")]
     return h + "\n".join("| %s | %d | %.3f | %.3f | %.2fx | %s |" % (lab, _pb[k]["n"], _pb[k]["serial_s"], _pb[k]["parallel_s"], _pb[k]["speedup"], "yes" if _pb[k]["bit_identical"] else "NO") for k, lab in names)
 
-rmap = dict((r[0], r[2]) for r in R + VR + FR + PR)
+HX = json.load(open(os.path.join(ROOT, "results", "helical.json")))
+HD = json.load(open(os.path.join(ROOT, "results", "head.json")))
+_h30, _h40 = HX["dsv"]["30mm"], HX["dsv"]["40mm"]
+
+
+def _lad(a, i):
+    return a["ladder_ppm"][i][1]
+
+
+def _top(a, n=4):
+    t = sorted(a["tesseral_ppm"].items(), key=lambda kv: -abs(kv[1]))[:n]
+    return ", ".join("%s %+.2f" % (k, v) for k, v in t) or "none >= 0.01"
+
+
+_LAD = [("+ retune Z1, Z2, Z4", ["Z"]), ("+ X, Y", ["X", "Y"]), ("+ ZX, ZY", ["ZX", "ZY"]), ("+ X2-Y2, XY", ["X2-Y2", "XY"]),
+        ("+ all n = 3 tesseral", ["n=3"]), ("+ all n = 4 tesseral", ["n=4"])]
+
+
+def _contrib(a):
+    """Orders in the ladder prefix that reach the target whose step lowers p-p by >= 0.1 ppm."""
+    out, L_ = [], a["ladder_ppm"]
+    for i in range(2, len(L_)):
+        if L_[i - 1][1] - L_[i][1] >= 0.1:
+            out += dict(_LAD)[L_[i][0]]
+        if L_[i][0] == a["ladder_reached"]:
+            break
+    return out
+
+
+def htable():
+    h = ("| DSV | path variant | p-p unshimmed | p-p after Z2/Z4 pairs | largest tesseral terms of abs(B) [ppm at r0] | "
+         "max B_perp total / helical part [uT] | ideal shims needed (ladder) | terms >= 1 ppm |\n|---|---|---|---|---|---|---|---|\n")
+    rows = []
+    for key, d in (("30 mm", _h30), ("40 mm", _h40)):
+        for kind in ("ideal", "uniform", "aligned", "rotating"):
+            a = d[kind]
+            need = "-" if kind == "ideal" else ("not reached with n <= 4" if a.get("ladder_orders_needed") is None else (", ".join(_contrib(a)) or "none"))
+            rows.append("| %s | %s | %.2f | %.2f | %s | %.0f / %.0f | %s | %s |" % (
+                key, kind, _lad(a, 0), _lad(a, 1), "-" if kind == "ideal" else _top(a), a["B_perp_max_uT"], a["B_perp_helical_max_uT"],
+                need, "-" if kind == "ideal" else (", ".join(a["needed_shims"]) or "none")))
+    return h + "\n".join(rows)
+
+
+def ladtable():
+    names = [n for n, _ in _h30["ideal"]["ladder_ppm"]]
+    h = "| step | " + " | ".join("%s %s" % (k, dsv) for dsv in ("30 mm", "40 mm") for k in ("ideal", "uniform", "aligned", "rotating")) + " |\n|---|" + "---|" * 8 + "\n"
+    rows = []
+    for i, nm in enumerate(names):
+        vals = [d[k]["ladder_ppm"][i][1] for d in (_h30, _h40) for k in ("ideal", "uniform", "aligned", "rotating")]
+        rows.append("| %s | " % nm + " | ".join("%.2f" % v for v in vals) + " |")
+    return h + "\n".join(rows)
+
+
+def headtable():
+    h = ("| run | seed | R2 [mm] | L [mm] | plate [mm] | hole [mm] | v [m/s] | pitch/D | P_elec + pump + shim [kW] | V [V] | I [A] | "
+         "Cu [t] | p-p shimmed [ppm] | T_hot [C] | bounds hit | active constraints |\n|---|" + "---|" * 15 + "\n")
+    lab = {"power_8V": "min power, V <= 8 V", "power_noV": "min power, no V limit", "min_voltage": "min supply voltage"}
+    rows = []
+    for k in ("power_8V", "power_noV", "min_voltage"):
+        for r in HD["runs"][k]:
+            x = r["x"]
+            rows.append("| %s | %d | %.0f | %.0f | %.2f | %.2f | %.3f | %.2f | %.2f | %.3f | %.0f | %.1f | %.2f | %.2f | %s | %s |" % (
+                lab[k], r["seed"], x["R2"] * 1e3, x["L"] * 1e3, x["d_plate"] * 1e3, x["D_hole"] * 1e3, x["v_flow"], x["pitch_factor"],
+                r["P_total_W"] / 1e3, r["V_total_V"], r["I_A"], r["mass_cu_kg"] / 1e3, r["ppm_shimmed"], r["T_hot_C"],
+                ", ".join(r["at_bound"]) or "none (interior)", ", ".join(r["active_constraints"]) or "none"))
+    return h + "\n".join(rows)
+
+
+_hb = min(HD["runs"]["power_8V"], key=lambda r: r["P_total_W"])
+_hv = min(HD["runs"]["min_voltage"], key=lambda r: r["V_total_V"])
+_spread = (max(r["P_total_W"] for r in HD["runs"]["power_8V"]) - _hb["P_total_W"]) / _hb["P_total_W"]
+HR = [
+ ("R57", "Helical path, 30 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform helix / aligned slits / rotating slits",
+  "%.2f / %.2f / %.2f / %.2f ppm" % (_lad(_h30["ideal"], 1), _lad(_h30["uniform"], 1), _lad(_h30["aligned"], 1), _lad(_h30["rotating"], 1))),
+ ("R58", "Helical path, 40 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform / aligned / rotating",
+  "%.2f / %.2f / %.2f / %.2f ppm" % (_lad(_h40["ideal"], 1), _lad(_h40["uniform"], 1), _lad(_h40["aligned"], 1), _lad(_h40["rotating"], 1))),
+ ("R59", "Aligned slits, 30 mm DSV: X / Y terms of abs(B); max transverse field (total, with return bus)",
+  "%.2f / %.2f ppm; %.0f uT" % (_h30["aligned"]["tesseral_ppm"].get("A11", 0.0), _h30["aligned"]["tesseral_ppm"].get("B11", 0.0), _h30["aligned"]["B_perp_max_uT"])),
+ ("R60", "Head preset optimum (DE, best of seeds 1-3, V <= 8 V): R2, L, plate, total power, V, Cu mass",
+  "%.0f mm, %.0f mm, %.2f mm, %.2f kW, %.3f V, %.1f t (seed spread in power %.2f %%)" % (_hb["x"]["R2"] * 1e3, _hb["x"]["L"] * 1e3, _hb["x"]["d_plate"] * 1e3, _hb["P_total_W"] / 1e3, _hb["V_total_V"], _hb["mass_cu_kg"] / 1e3, 100 * _spread)),
+ ("R61", "Head preset: minimum achievable supply voltage (other constraints kept)", "%.3f V (%s)" % (_hv["V_total_V"], ", ".join(_hv["at_bound"]) or "interior")),
+]
+
+rmap = dict((r[0], r[2]) for r in R + VR + FR + PR + HR)
 
 def rtable(rows):
     return "| ID | quantity | value |\n|---|---|---|\n" + "\n".join("| %s | %s | %s |" % r for r in rows)
 
 summary = open(os.path.join(ROOT, "examples", "summary_template.md")).read()
-summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR + FR + PR)).replace("{{ENV}}", envs)
+summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR + FR + PR + HR)).replace("{{ENV}}", envs)
 import sys
 CHECK = "--check" in sys.argv
 def _emit(name, text):
@@ -131,6 +214,12 @@ readme = readme.replace("{{P_MC_MS}}", "%.1f" % (1e3 * _pb["tolerance_mc_process
 readme = readme.replace("{{P_B0_ERR}}", "%.1e" % _pc["B0"]["rel_err"]).replace("{{P_PPM_SAME}}", "%.2f" % _pp["ppm_loop_same_points"])
 readme = readme.replace("{{P_RHO_MODEL}}", "%+.1e" % _pc["rho_bg_model"]["rel_err"]).replace("{{P_RHO_SE}}", "%.1e" % _pc["rho_mean"]["stderr_rel"]).replace("{{P_RHO_85}}", "%+.2f %%" % (100 * _pc["rho_85"]["rel_err"]))
 readme = readme.replace("{{P_PPM_R15}}", "%.2f" % _pp["ppm_R15"]).replace("{{P_THETA}}", "%.0f" % _pp["theta_R"]).replace("{{P_RRR}}", "%.0f" % _pp["RRR"])
+readme = readme.replace("{{HELICAL_TABLE}}", htable()).replace("{{LADDER_TABLE}}", ladtable()).replace("{{HEAD_TABLE}}", headtable()).replace("{{NEXT_ROWS}}", rtable(HR))
+_ha = HX["assumptions"]
+readme = readme.replace("{{HX_NT}}", str(_ha["n_turns"])).replace("{{HX_OV}}", "%.0f" % _ha["overlap_deg"]).replace("{{HX_BUS}}", "%.0f" % (_ha["bus_radius_m"] * 1e3)).replace("{{HX_NR}}", str(_ha["radial_filaments"]))
+readme = readme.replace("{{HX_SCALE}}", "%.4f" % _h30["rotating"]["current_scale"]).replace("{{HX_RICH}}", "%.2f" % max(max(d[k]["tesseral_richardson_err_ppm"].values() or [0]) for d in (_h30, _h40) for k in ("uniform", "aligned", "rotating")))
+readme = readme.replace("{{HX_RICH_AL}}", "%.3f" % max(max(d["aligned"]["tesseral_richardson_err_ppm"].values() or [0]) for d in (_h30, _h40)))
+readme = readme.replace("{{HEAD_MIN_SECONDS}}", "%.0f" % (HD["seconds"] / 60.0))
 readme = readme.replace("{{OPT_SECONDS}}", "%.0f" % D["optimiser"]["seconds"]).replace("{{NFEV}}", str(D["optimiser"]["de_nfev"]))
 _emit("README.md", readme)
 print("ok")

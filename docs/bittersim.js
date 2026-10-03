@@ -552,6 +552,67 @@
   }
   function lumpedTau(P20, Cth, Rth) { var k = 1 / Rth - ALPHA * P20; return k <= 0 ? Infinity : Cth / k; }
 
+  // ---------------------------------------------------------------- particle emulation (port of particles.py)
+  function halton(i, base) { var f = 1, r = 0, k = i; while (k > 0) { f /= base; r += f * (k % base); k = Math.floor(k / base); } return r; }
+  // P1: same deterministic Halton estimator as particles._field_kernel (identical to Python up to rounding)
+  function particleField(pts, R1, R2, L, C, N) {
+    var K = 16, a = 0.5 * L, A1 = Math.asinh(a / R1), Z = A1 - Math.asinh(a / R2);
+    var base = C * (2 * Math.PI / K) / N * 1e-7, out = [], cs = [], sn = [];
+    for (var j = 0; j < pts.length; j++) out.push([0, 0, 0]);
+    for (var i = 1; i <= N; i++) {
+      var r = a / Math.sinh(A1 - Z * halton(i, 2)), hr = Math.sqrt(r * r + a * a), smax = a / hr;
+      var sv = smax * halton(i, 3), q = Math.sqrt(1 - sv * sv), z0 = r * sv / q;
+      var wz = (Z * r * hr / a) * smax * r / (q * q * q), ph0 = 2 * Math.PI * halton(i, 5) / K;
+      for (var m = 0; m < K; m++) { var ph = ph0 + 2 * Math.PI * m / K; cs[m] = Math.cos(ph); sn[m] = Math.sin(ph); }
+      for (j = 0; j < pts.length; j++) {
+        var px = pts[j][0], py = pts[j][1], pz = pts[j][2], o = out[j];
+        for (m = 0; m < 2 * K; m++) {
+          var c = cs[m % K], s = sn[m % K], zm = m < K ? z0 : -z0;
+          var dx = px - r * c, dy = py - r * s, dz = pz - zm, d2 = dx * dx + dy * dy + dz * dz, inv3 = wz / (d2 * Math.sqrt(d2));
+          o[0] += c * dz * inv3; o[1] += s * dz * inv3; o[2] += (-s * dy - c * dx) * inv3;
+        }
+      }
+    }
+    return out.map(function (o) { return [base * o[0], base * o[1], base * o[2]]; });
+  }
+  function particleAxis(R1, R2, L, C, N, nAxis) {
+    nAxis = nAxis || 21;
+    var z = [], pts = [];
+    for (var k = 0; k < nAxis; k++) { var zz = -0.5 * L + L * k / (nAxis - 1); z.push(zz); pts.push([0, 0, zz]); }
+    var t0 = Date.now(), b = particleField(pts, R1, R2, L, C, N), ms = Date.now() - t0;
+    var cont = z.map(function (zz) { return bitterAxisZ(R1, R2, L, C, zz); });
+    var rel = b.map(function (v, k) { return v[2] / cont[k] - 1; });
+    var inner = 0, all = 0;
+    rel.forEach(function (e, k) { all = Math.max(all, Math.abs(e)); if (Math.abs(z[k]) <= 0.4 * L + 1e-12) inner = Math.max(inner, Math.abs(e)); });
+    return { z: z, Bz: b.map(function (v) { return v[2]; }), Bz_continuum: cont, rel_err: rel, max_err_inner: inner, max_err_all: all, ms: ms, N: N };
+  }
+  // P2: Bloch-Gruneisen rho(T) (64-point Gauss-Legendre, as in Python) and an OU-carrier Green-Kubo estimate.
+  // The JS random stream (mulberry32) differs from Python's splitmix64, so parity is statistical.
+  var THETA_R = 343.0, RRR = 100.0, N_CU = 8.47e28, QE = 1.60217662e-19, ME = 9.1093837e-31, KB = 1.38064852e-23;
+  function blochGruneisen(T_C) {
+    var g = leggauss(64);
+    function J5(y) { var s = 0; for (var i = 0; i < g[0].length; i++) { var x = 0.5 * y * (g[0][i] + 1); s += g[1][i] * Math.pow(x, 5) / ((Math.exp(x) - 1) * (1 - Math.exp(-x))); } return 0.5 * y * s; }
+    var T20 = 293.15, g20 = Math.pow(T20 / THETA_R, 5) * J5(THETA_R / T20), rho0 = RHO20 / RRR, A = (RHO20 - rho0) / g20, T = T_C + 273.15;
+    return rho0 + A * Math.pow(T / THETA_R, 5) * J5(THETA_R / T);
+  }
+  function greenKubo(T_C, n, seed, window, stepsPerTau) {
+    window = window || 200; stepsPerTau = stepsPerTau || 10;
+    var rt = blochGruneisen(T_C), tau = ME / (N_CU * QE * QE * rt), vth = Math.sqrt(KB * (T_C + 273.15) / ME);
+    var dt = tau / stepsPerTau, steps = Math.round(window * stepsPerTau), a = Math.exp(-dt / tau), b = vth * Math.sqrt(1 - a * a);
+    var rng = mulberry32(seed), sum = 0, sum2 = 0;
+    for (var i = 0; i < n; i++) {
+      var v = vth * gaussRand(rng), x = 0;
+      for (var k = 0; k < steps; k++) { var vn = a * v + b * gaussRand(rng); x += 0.5 * (v + vn) * dt; v = vn; }
+      sum += x * x; sum2 += x * x * x * x;
+    }
+    var msd = sum / n, se = Math.sqrt(Math.max(sum2 / n - msd * msd, 0)) / Math.sqrt(n);
+    // exact expectation of the trapezoid estimator: vth^2 dt^2 sum_ij w_i w_j a^|i-j|
+    var S = 0, acc = 0;
+    for (var t = 0; t <= steps; t++) { var w = (t === 0 || t === steps) ? 0.5 : 1; S += w * (w + 2 * acc); acc = a * (acc + w); }
+    var expct = vth * vth * dt * dt * S;
+    return { rho: rt * expct / msd, rho_target: rt, rho_linear: rhoCu(T_C), stderr_rel: se / msd, n: n };
+  }
+
   var api = { shims: shims, zonalFit: polyFitAxis, stability: stability, rfEvaluate: rfEvaluate, rfCompare: rfCompare,
               besselJ1: besselJ1, lumpedTau: lumpedTau, STAB_SPEC: STAB_SPEC, RF_DEFAULTS: RF_DEFAULTS,
               evaluate: evaluate, bitterAxis: bitterAxis, fieldLoops: fieldLoops, swissRoll: swissRoll, snrGain: snrGain,
@@ -559,6 +620,7 @@
               coolantProps: coolantProps, catalogIds: catalogIds, requireMaterial: requireMaterial,
               emulateFast: emulateFast, tsatC: tsatC, conductorSpec: conductorSpec, LABEL: LABEL,
               presets: presets, PUBLISHED: PUBLISHED, fieldGrid: fieldGrid, langevinCloud: langevinCloud,
-              adiabaticTrace: adiabaticTrace };
+              adiabaticTrace: adiabaticTrace, halton: halton, particleField: particleField, particleAxis: particleAxis,
+              blochGruneisen: blochGruneisen, greenKubo: greenKubo };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.BitterSim = api;
 })(this);
