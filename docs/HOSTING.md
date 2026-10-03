@@ -18,4 +18,4 @@ Use a separate public repository `bitter-solenoid-demo` that contains only `docs
 
 ## Manual workflow
 
-`.github/workflows/pages-demo.yml` runs only on `workflow_dispatch`. If the repository is not public it prints the Free-plan limitation and does not upload the site. If the repository is public it uploads `docs/` as an artifact named `bitter-solenoid-docs`. Turning on Pages in the repository settings is a separate manual step and is not done here.
+Pages is configured with **Source: GitHub Actions**. `.github/workflows/pages.yml` uploads `docs/` and deploys it on every push to `main` that touches `docs/` (or on manual dispatch). The old setting served branch `pages-demo` at `/`, so Jekyll rendered the README and `bittersim.js` was missing (404); that was the cause of the broken demo, fixed 2026-10-03.

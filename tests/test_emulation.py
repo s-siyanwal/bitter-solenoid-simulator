@@ -72,8 +72,20 @@ def test_default_catalog_does_not_move_numbers():
     plain = evaluate_design()
     from bittersim.emulation import evaluate_with_catalog
     cat = evaluate_with_catalog(BitterDesign())
-    for key in ("P_elec_W", "V_total_V", "T_hot_C", "Re", "homogeneity_ppm"):
+    for key in ("P_elec_W", "V_total_V", "T_hot_C", "Re", "homogeneity_ppm", "mass_cu_kg", "C_th_J_K"):
         assert cat[key] == pytest.approx(plain[key], rel=0, abs=0)
+
+
+def test_alloy_mass_and_glycol_follow_catalog():
+    from bittersim.emulation import evaluate_with_catalog
+    d = BitterDesign()
+    cu = evaluate_with_catalog(d, homogeneity=False)
+    al = evaluate_with_catalog(d, conductor_id="al_1350", homogeneity=False)
+    gly = evaluate_with_catalog(d, coolant_id="water_glycol_30", homogeneity=False)
+    assert al["P_elec_W"] > cu["P_elec_W"]
+    assert al["mass_cu_kg"] / cu["mass_cu_kg"] == pytest.approx(2705.0 / 8960.0, rel=1e-12)
+    assert al["C_th_J_K"] / cu["C_th_J_K"] == pytest.approx((2705.0 * 900.0) / (8960.0 * 385.0), rel=1e-12)
+    assert gly["Re"] < cu["Re"]
 
 
 def test_radial_rho_does_not_change_power():
