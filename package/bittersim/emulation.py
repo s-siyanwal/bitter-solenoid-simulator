@@ -333,6 +333,8 @@ def evaluate_with_catalog(design, conductor_id="ofhc_cu", coolant_id="di_water",
         kwargs["rho20"] = cond["rho20"]
         kwargs["alpha"] = cond["alpha"]
         kwargs["k_solid"] = cond["k"]
+        kwargs["dens"] = cond["density"]
+        kwargs["cp_solid"] = cond["cp"]
     if coolant_id != "di_water":
         kwargs["fluid"] = (lambda T, cid=coolant_id: catalog.coolant_props(cid, T))
     if rho_scale != 1.0:

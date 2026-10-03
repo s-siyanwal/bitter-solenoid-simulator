@@ -188,14 +188,15 @@ def main(argv):
     if "--append" in argv:
         i = argv.index("--append")
         append = argv[i + 1]
+    if "--check" in argv:
+        # read-only: tests must not rewrite tracked files
+        check()
+        return
     write_numbers()
     if append:
         append_changelog(append)
     sync_docs()
-    if "--check" in argv:
-        check()
-    else:
-        print("updated report numbers")
+    print("updated report numbers")
 
 
 if __name__ == "__main__":

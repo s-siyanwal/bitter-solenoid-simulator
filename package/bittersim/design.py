@@ -102,7 +102,8 @@ def _audit_warnings(res, radial_rho):
 
 
 def evaluate_design(design=None, homogeneity=True, n_iter=30, rho_scale=1.0,
-                    radial_rho=False, fluid=None, k_solid=None, alpha=None, rho20=None, **kw):
+                    radial_rho=False, fluid=None, k_solid=None, alpha=None, rho20=None,
+                    dens=None, cp_solid=None, **kw):
     """Return a dict of all derived quantities for a design.
 
     Extra arguments default to the published path. rho_scale=1, radial_rho off,
@@ -194,9 +195,12 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, rho_scale=1.0,
     # mechanics (closed-form part); profile in mechanics.py
     sigma_hoop_est = C * d.B0 / lam   # E21 with Bz(R1) <= B0 (upper bound)
 
-    # thermal transient parameters (E19)
+    # thermal transient parameters (E19). Default density and cp stay OFHC.
+    # Catalog alloys pass their own values; omitting them leaves the published path unchanged.
+    dens_s = DENS_CU if dens is None else float(dens)
+    cp_s = CP_CU if cp_solid is None else float(cp_solid)
     V_cu = math.pi * (R2 ** 2 - R1 ** 2) * L * lam
-    C_th = V_cu * DENS_CU * CP_CU
+    C_th = V_cu * dens_s * cp_s
     R_th = 1.0 / (fl["h"] * A_wet_cu_per_len * n_holes * L)
     P20 = 2 * math.pi * rho_at(20.0) * C ** 2 * L * lnr / lam
     adiabatic_rate = P / C_th
@@ -219,7 +223,7 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, rho_scale=1.0,
         "energy_residual": energy_residual, "sigma_hoop_max_MPa": sigma_hoop_est / 1e6,
         "C_th_J_K": C_th, "R_th_K_W": R_th, "P20_W": P20, "adiabatic_rate_K_s": adiabatic_rate,
         "f_larmor_MHz": 2.6752218744e8 * d.B0 / (2 * math.pi) / 1e6,
-        "mass_cu_kg": V_cu * DENS_CU,
+        "mass_cu_kg": V_cu * dens_s,
     })
     if homogeneity:
         coil = CoilLoops(R1, R2, L, C, "bitter", nr=12, nz=16, z_panels=4)
