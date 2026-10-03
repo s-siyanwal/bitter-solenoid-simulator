@@ -34,7 +34,7 @@ R = [  # (id, label, value string)
  ("R24", "Max hoop stress (E21, field profile) / simple bound C B0/lambda", "%.4f / %.4f MPa" % (x["hoop_stress_max_MPa_profile"], o["sigma_hoop_max_MPa"])),
  ("R25", "Axial compressive force on each half", "%.0f N" % abs(x["axial_compressive_force_N"])),
  ("R26", "Inductance / stored energy / L/R time constant", "%.4f mH / %.0f J / %.3f s" % (x["inductance_H"] * 1e3, x["stored_energy_J"], x["L_over_R_s"])),
- ("R27", "Lumped thermal time constant (63 %) / pump-failure time to 85 C", "%.1f s / %.0f s" % (x["transient_tau63_s"], x["pump_failure_time_to_85C_s"])),
+ ("R27", "Lumped thermal time constant (63 %) / pump-failure time to 85 C: lumped mean / hot-spot adiabatic bound", "%.1f s / %.0f s / %.0f s" % (x["transient_tau63_s"], x["pump_failure_time_to_85C_s"], x["pump_failure_hotspot_adiabatic_s"])),
  ("R28", "Copper mass", "%.0f kg" % o["mass_cu_kg"]),
  ("R29", "Larmor frequency at 0.5 T", "%.6f MHz" % x["larmor_MHz"]),
  ("R30", "Swiss roll tuned exactly to f_L: mu_eff(f_L), Q", "%.3f + %.2fj, Q = %.1f" % (sr["mu_at_fL_when_tuned_to_fL"][0], sr["mu_at_fL_when_tuned_to_fL"][1], sr["Q"])),

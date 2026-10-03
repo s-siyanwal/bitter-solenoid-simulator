@@ -55,9 +55,9 @@ python examples/run_all.py && python examples/make_docs.py   # regenerate everyt
 
 ### Open in Colab
 
-The repository is **private**, so the usual "Open in Colab" badge link will not work for other people. To use it in Colab:
+The repository is currently **public** (see the Pages note below). To use it in Colab:
 1. Upload `notebooks/bitter_solenoid_realtime.ipynb` (File → Upload notebook).
-2. Make the repo available in the session, either by uploading the repo folder or zip, or with `!git clone https://<TOKEN>@github.com/s-siyanwal/bitter-solenoid-simulator.git`.
+2. Make the repo available in the session, either by uploading the repo folder or zip, or with `!git clone https://github.com/s-siyanwal/bitter-solenoid-simulator.git`.
 3. Run all cells.
 
 Kaggle works the same way: add the repo as a dataset.
@@ -119,7 +119,7 @@ The differential-evolution run (seed 1, 10605 evaluations) took 112 s. The SLSQP
 | R24 | Max hoop stress (E21, field profile) / simple bound C B0/lambda | 0.1176 / 0.1214 MPa |
 | R25 | Axial compressive force on each half | 3656 N |
 | R26 | Inductance / stored energy / L/R time constant | 1.1589 mH / 3846 J / 0.657 s |
-| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C | 29.8 s / 4922 s |
+| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C: lumped mean / hot-spot adiabatic bound | 54.3 s / 4922 s / 453 s |
 | R28 | Copper mass | 2575 kg |
 | R29 | Larmor frequency at 0.5 T | 21.288739 MHz |
 | R30 | Swiss roll tuned exactly to f_L: mu_eff(f_L), Q | 1.000 + 52.81j, Q = 96.8 |

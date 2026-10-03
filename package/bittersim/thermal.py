@@ -81,3 +81,50 @@ def transient_lumped(P20, alpha, C_th, R_th, T_w, T0=20.0, t_end=600.0, n=601, c
     t = np.linspace(0.0, t_end, n)
     T = odeint(rhs, [T0], t)[:, 0]
     return t, T
+
+
+def lumped_time_constant(P20, alpha, C_th, R_th):
+    """E19 is linear in T: dT/dt = -(T - T_ss)/tau, tau = C_th / (1/R_th - alpha P20).
+
+    Returns inf when alpha*P20 >= 1/R_th (thermal runaway, no steady state)."""
+    k = 1.0 / R_th - alpha * P20
+    return float("inf") if k <= 0.0 else C_th / k
+
+
+def lumped_steady_state(P20, alpha, R_th, T_w):
+    """Steady state of E19 with cooling: P20 (1 + alpha (T-20)) = (T - T_w)/R_th."""
+    k = 1.0 / R_th - alpha * P20
+    if k <= 0.0:
+        return float("inf")
+    return (P20 * (1.0 - 20.0 * alpha) + T_w / R_th) / k
+
+
+def adiabatic_time_to(T_limit, T0, rho20, alpha, J, dens, cp):
+    """Local adiabatic heating of copper carrying current density J (no cooling, no conduction):
+    dens cp dT/dt = rho20 (1 + alpha (T-20)) J^2  ->  closed-form time from T0 to T_limit.
+
+    Applied at the inner radius (largest J for J ~ 1/r) this is the conservative
+    pump-failure bound; the lumped E19 value averages J^2 over the whole stack."""
+    if T_limit <= T0:
+        return 0.0
+    k = rho20 * alpha * J ** 2 / (dens * cp)
+    return math.log((T_limit - 20.0 + 1.0 / alpha) / (T0 - 20.0 + 1.0 / alpha)) / k
+
+
+def transient_summary(res, alpha, T_limit=85.0):
+    """Post-process E19 for a design result dict (used by examples/run_all.py)."""
+    from .constants import RHO_CU_20, DENS_CU, CP_CU
+    P20, C_th, R_th = res["P20_W"], res["C_th_J_K"], res["R_th_K_W"]
+    T_w = res["T_in"] + 0.5 * res["dT_water_mixed_K"]
+    tau = lumped_time_constant(P20, alpha, C_th, R_th)
+    Tss = lumped_steady_state(P20, alpha, R_th, T_w)
+    # integrate well past the transient so the 63 % point is measured against the true steady state
+    tt, Tc = transient_lumped(P20, alpha, C_th, R_th, T_w, t_end=10.0 * tau, n=20001)
+    tau63 = float(np.interp(20.0 + (1.0 - math.exp(-1.0)) * (Tss - 20.0), Tc, tt))
+    tf, Tf = transient_lumped(P20, alpha, C_th, R_th, T_w, t_end=6 * 3600.0, n=21601, cooling=False)
+    t85 = float(tf[np.argmax(Tf >= T_limit)]) if np.any(Tf >= T_limit) else None
+    t85_hot = adiabatic_time_to(T_limit, res["T_hot_C"], RHO_CU_20, alpha,
+                                res["J_cu_inner_A_per_mm2"] * 1e6, DENS_CU, CP_CU)
+    return {"transient_tau63_s": tau63, "transient_tau_analytic_s": tau, "transient_T_steady_C": Tss,
+            "transient_T_end_60s_C": float(np.interp(60.0, tt, Tc)),
+            "pump_failure_time_to_85C_s": t85, "pump_failure_hotspot_adiabatic_s": t85_hot}

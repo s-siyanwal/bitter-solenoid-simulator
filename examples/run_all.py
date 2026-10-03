@@ -63,20 +63,13 @@ sr_tuned = swissroll.SwissRoll(fL)
 ratios, gains, qbest, gbest = swissroll.best_detuning(best["B0"])
 sr_best = swissroll.SwissRoll(fL * qbest)
 mu_t = complex(sr_tuned.mu(fL)); mu_b = complex(sr_best.mu(fL))
-from bittersim.thermal import transient_lumped
+from bittersim.thermal import transient_summary
 from bittersim.constants import ALPHA_CU
-Tw = best["T_in"] + 0.5 * best["dT_water_mixed_K"]
-tt, Tc = transient_lumped(best["P20_W"], ALPHA_CU, best["C_th_J_K"], best["R_th_K_W"], Tw, t_end=60.0, n=6001)
-tf, Tf = transient_lumped(best["P20_W"], ALPHA_CU, best["C_th_J_K"], best["R_th_K_W"], Tw, t_end=6 * 3600.0, n=21601, cooling=False)
-t85 = float(tf[np.argmax(Tf >= 85.0)]) if np.any(Tf >= 85.0) else None
-Tss = Tc[-1]
-tau63 = float(tt[np.argmax(Tc >= 20.0 + 0.632 * (Tss - 20.0))])
+tr = transient_summary(best, ALPHA_CU)
 
 extra = {"hoop_stress_max_MPa_profile": float(sig_m.max() / 1e6), "Bz_inner_edge_T": float(Bz_m[0]),
          "axial_compressive_force_N": Fz, "inductance_H": Lind, "stored_energy_J": 0.5 * Lind * best["I_A"] ** 2,
          "L_over_R_s": Lind / best["R_total_ohm"],
-         "transient_tau63_s": tau63, "transient_T_end_60s_C": float(Tc[-1]),
-         "pump_failure_time_to_85C_s": t85,
          "larmor_MHz": fL / 1e6, "swissroll": {
              "F": sr_tuned.F, "N": sr_tuned.N, "r_m": sr_tuned.r, "gap_tuned_um": sr_tuned.gap * 1e6,
              "Q": sr_tuned.Q, "skin_depth_um": sr_tuned.skin_depth * 1e6, "sheet_res_ohm": sr_tuned.sigma_s,
@@ -85,6 +78,7 @@ extra = {"hoop_stress_max_MPa_profile": float(sig_m.max() / 1e6), "Bz_inner_edge
              "snr_gain_best": float(gbest), "snr_gain_tuned_to_fL": float(swissroll.snr_gain(mu_t)),
              "mu_at_DC": [complex(sr_tuned.mu(0.0)).real, complex(sr_tuned.mu(0.0)).imag]}}
 
+extra.update(tr)
 val = validation.run_all(best)
 json.dump(clean({"env": env, "baseline_pdf_initial_guess": baseline, "optimal": best, "extra": extra,
                  "optimiser": {"method": opt["method"], "x": opt["x"], "constraints_g": opt["constraints"],
