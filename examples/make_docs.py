@@ -38,7 +38,7 @@ R = [  # (id, label, value string)
  ("R28", "Copper mass", "%.0f kg" % o["mass_cu_kg"]),
  ("R29", "Larmor frequency at 0.5 T", "%.6f MHz" % x["larmor_MHz"]),
  ("R30", "Swiss roll tuned exactly to f_L: mu_eff(f_L), Q", "%.3f + %.2fj, Q = %.1f" % (sr["mu_at_fL_when_tuned_to_fL"][0], sr["mu_at_fL_when_tuned_to_fL"][1], sr["Q"])),
- ("R31", "Best roll tuning f0/f_L, mu_eff(f_L), heuristic SNR gain", "%.5f, %.3f + %.3fj, %.3f" % (sr["best_f0_over_fL"], sr["mu_at_fL_best"][0], sr["mu_at_fL_best"][1], sr["snr_gain_best"])),
+ ("R31", "Best roll tuning f0/f_L, mu_eff(f_L), legacy heuristic SNR gain (E28, superseded by R49)", "%.5f, %.3f + %.3fj, %.3f" % (sr["best_f0_over_fL"], sr["mu_at_fL_best"][0], sr["mu_at_fL_best"][1], sr["snr_gain_best"])),
  ("R32", "Swiss roll mu_eff at DC", "%.1f + %.1fj (no static-field effect)" % tuple(sr["mu_at_DC"])),
  ("R33", "PDF initial guess (R2 = 0.15 m, L = 0.8 m, v = 2.5 m/s, 2 mm plates)", "P = %.3f kW, V = %.3f V (violates 8 V), %.2f ppm (violates 100 ppm), T_hot = %.2f C" % (b["P_elec_W"] / 1e3, b["V_total_V"], b["homogeneity_ppm"], b["T_hot_C"])),
  ("R34", "Energy-balance residual (sum of cell heats vs E31)", "%.1e" % o["energy_residual"]),
@@ -52,17 +52,43 @@ VR = [
  ("R39", "Long-solenoid limit L/R = 1000 vs mu0 n I", "%.2e relative" % V["long_solenoid"][2]["rel_vs_ideal"]),
  ("R40", "Numerical sheet inductance vs Nagaoka (worst of 3)", "%.1e relative" % max(r["rel"] for r in V["inductance"]["sheet"])),
 ]
-rmap = dict((r[0], r[2]) for r in R + VR)
+F = json.load(open(os.path.join(ROOT, "results", "fmri.json")))
+s3, s4, hp, st, rq, rf = F["shim_30mm"], F["shim_40mm"], F["head_preset"], F["stability"], F["stability_requirements"], F["rf"]
+cb, vb = st["current"]["budget_ppm"], st["voltage"]["budget_ppm"]
+tol = F["tolerance_30mm"]["tesseral_ppm"]
+FR = [
+ ("R41", "Zonal Z2 / Z4 over 30 mm DSV (ppm at DSV radius, unshimmed)", "%.3f / %.4f" % (s3["zonal_ppm_unshimmed"][2], s3["zonal_ppm_unshimmed"][4])),
+ ("R42", "Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs", "%.2f -> %.3f ppm / %.2f -> %.3f ppm" % (s3["ppm_unshimmed"], s3["ppm_shimmed"], s4["ppm_unshimmed"], s4["ppm_shimmed"])),
+ ("R43", "Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed)", "%.1f mm, +-%.1f / +-%.1f mm, %.2f / %.2f A, %.3f W" % (s3["shim_radius_m"] * 1e3, s3["shim_z_m"][0] * 1e3, s3["shim_z_m"][1] * 1e3, s3["shim_NI_A"][0], s3["shim_NI_A"][1], s3["shim_power_W"])),
+ ("R44", "Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21", "%.3f / %.4f ppm" % (tol["A11"], tol["B21"])),
+ ("R45", "Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on grid)", "R2 %.0f mm, L %.0f mm, P %.1f kW + pump %.2f kW, %.2f V, %.0f A, %.1f t Cu, %.0f L/min, %.0f -> %.2f ppm, T_hot %.2f C%s" % (hp["R2"] * 1e3, hp["L"] * 1e3, hp["P_elec_W"] / 1e3, hp["P_pump_W"] / 1e3, hp["V_total_V"], hp["I_A"], hp["mass_cu_kg"] / 1e3, hp["flow_L_min"], hp["ppm_unshimmed"], hp["ppm_shimmed"], hp["T_hot_C"], " (violates 8 V)" if hp["violates_8V_supply"] else "")),
+ ("R46", "Field drift vs copper temperature at fixed current (numeric, isotropic expansion)", "%.3f ppm/K" % (F["alpha_B_per_K_numeric"] * 1e6)),
+ ("R47", "B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total", "%.3f / %.3f / %.3f / %.3f ppm (%.1f Hz at f_L); voltage-regulated total %.1f ppm" % (cb["psu_ripple"], cb["psu_drift"], cb["thermal_expansion"], cb["total"], st["current"]["budget_Hz"]["total"], vb["total"])),
+ ("R48", "Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode)", "%.4f / %.2e K ; %.4f / %.2e K" % (rq["max_copper_dT_K_current_mode"], rq["max_copper_dT_K_voltage_mode"], rq["max_water_amp_K_current_mode"], rq["max_water_amp_K_voltage_mode"])),
+ ("R49", "RF SNR, Swiss-roll slab vs same coil over air / vs coil on tissue (loss x50, best tuning f0/f_L)", "%.3f / %.3f (f0/f_L = %.4f, mu = %.2f + %.2fj)" % (rf["gain_vs_air"], rf["gain_vs_contact"], rf["detune"], rf["mu"][0], rf["mu"][1])),
+ ("R50", "RF SNR vs air for loss multiplier 1 / 10 / 50", "%.3f / %.3f / %.3f" % (rf["gain_vs_air_by_loss_multiplier"]["1.0"], rf["gain_vs_air_by_loss_multiplier"]["10.0"], rf["gain_vs_air"])),
+ ("R51", "RF resistances with slab: coil / tissue / slab", "%.4f / %.4f / %.4f ohm" % (rf["slab"]["R_coil"], rf["slab"]["R_tissue"], rf["slab"]["R_slab"])),
+]
+rmap = dict((r[0], r[2]) for r in R + VR + FR)
 
 def rtable(rows):
     return "| ID | quantity | value |\n|---|---|---|\n" + "\n".join("| %s | %s | %s |" % r for r in rows)
 
 summary = open(os.path.join(ROOT, "examples", "summary_template.md")).read()
-summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR)).replace("{{ENV}}", envs)
-open(os.path.join(ROOT, "DESIGN_SUMMARY.md"), "w").write(summary)
+summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR + FR)).replace("{{ENV}}", envs)
+import sys
+CHECK = "--check" in sys.argv
+def _emit(name, text):
+    path = os.path.join(ROOT, name)
+    if CHECK:
+        if open(path).read() != text:
+            raise SystemExit("%s is stale: run examples/make_docs.py" % name)
+    else:
+        open(path, "w").write(text)
+_emit("DESIGN_SUMMARY.md", summary)
 
 readme = open(os.path.join(ROOT, "examples", "readme_template.md")).read()
-readme = readme.replace("{{RESULTS_TABLE}}", rtable(R)).replace("{{VALIDATION_TABLE}}", rtable(VR)).replace("{{ENV}}", envs)
+readme = readme.replace("{{RESULTS_TABLE}}", rtable(R)).replace("{{FMRI_TABLE}}", rtable(FR)).replace("{{VALIDATION_TABLE}}", rtable(VR)).replace("{{ENV}}", envs)
 readme = readme.replace("{{OPT_SECONDS}}", "%.0f" % D["optimiser"]["seconds"]).replace("{{NFEV}}", str(D["optimiser"]["de_nfev"]))
-open(os.path.join(ROOT, "README.md"), "w").write(readme)
+_emit("README.md", readme)
 print("ok")

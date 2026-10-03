@@ -23,12 +23,15 @@ package/bittersim/   simulation package
   mechanics.py       Lorentz force, hoop stress, axial compression
   swissroll.py       Pendry/Lorentzian mu_eff, skin-effect losses, heuristic SNR gain
   optimize.py        differential_evolution + SLSQP constrained optimisation
+  harmonics.py       spherical-harmonic fit, Z2/Z4 shim loop pairs, tolerance (tesseral) model, head-bore preset
+  stability.py       time-domain B0 stability: PSU ripple/drift, copper expansion, water-temperature drift
+  rfsnr.py           quasi-static RF receive model: coil, Swiss-roll slab and tissue losses, SNR ratios
   validation.py      V&V suite used by VALIDATION.md
   cli.py             command line interface (python -m bittersim)
 tests/               pytest: analytic limits, convergence, energy balance, web-demo parity, emulation
 notebooks/           Colab/Jupyter notebook with ipywidgets sliders
 docs/                static web demo (index.html + bittersim.js), no install needed
-examples/            run_all.py (reproduces all results/figures), make_docs.py, run_emulation.py
+examples/            run_all.py (reproduces all results/figures), run_fmri.py (fMRI layer), make_docs.py, run_emulation.py
 figures/ results/    generated outputs
 VALIDATION.md        validation tables and plots    DESIGN_SUMMARY.md  equation-labelled summary for review
 EMULATION.md         mesoscopic emulation grades, formulas, and non-goals
@@ -48,7 +51,7 @@ python -m bittersim swissroll
 python -m bittersim catalog
 python -m bittersim emulate --realizations 50 --seed 1
 python examples/run_emulation.py
-python examples/run_all.py && python examples/make_docs.py   # regenerate everything
+python examples/run_all.py && python examples/run_fmri.py && python examples/make_docs.py   # regenerate everything
 ```
 
 (Without `pip install -e .`, prefix the commands with `PYTHONPATH=package`.)
@@ -123,7 +126,7 @@ The differential-evolution run (seed 1, 10605 evaluations) took 112 s. The SLSQP
 | R28 | Copper mass | 2575 kg |
 | R29 | Larmor frequency at 0.5 T | 21.288739 MHz |
 | R30 | Swiss roll tuned exactly to f_L: mu_eff(f_L), Q | 1.000 + 52.81j, Q = 96.8 |
-| R31 | Best roll tuning f0/f_L, mu_eff(f_L), heuristic SNR gain | 1.01475, 17.367 + 5.701j, 4.745 |
+| R31 | Best roll tuning f0/f_L, mu_eff(f_L), legacy heuristic SNR gain (E28, superseded by R49) | 1.01475, 17.367 + 5.701j, 4.745 |
 | R32 | Swiss roll mu_eff at DC | 1.0 + 0.0j (no static-field effect) |
 | R33 | PDF initial guess (R2 = 0.15 m, L = 0.8 m, v = 2.5 m/s, 2 mm plates) | P = 17.974 kW, V = 19.537 V (violates 8 V), 154.15 ppm (violates 100 ppm), T_hot = 21.15 C |
 | R34 | Energy-balance residual (sum of cell heats vs E31) | -1.6e-16 |
@@ -133,6 +136,33 @@ At the optimum:
 - **Large margins:** hot-spot temperature and supply voltage.
 
 At 0.5 T the design is therefore driven by field quality and size, not by cooling. The blueprint's initial guess (R33) violates both the 8 V limit and the homogeneity target.
+
+## fMRI layer: shims, head preset, B0 stability, RF SNR
+
+`examples/run_fmri.py` writes `results/fmri.json` and `figures/fig7_fmri.png` from the published optimum (it does not rerun the optimiser). Modules: `harmonics.py` (spherical harmonics H1-H4, Z2/Z4 shim loop pairs, tolerance model, head preset), `stability.py` (S1-S4) and `rfsnr.py` (Q1-Q6). Every default input is an **assumption** and is copied into `fmri.json` under `assumptions`: shim J, head bore and DSV, PSU and chiller specs, the 1 ppm EPI target, coil, slab and tissue geometry, tissue conductivity, and the Swiss-roll loss multiplier.
+
+| ID | quantity | value |
+|---|---|---|
+| R41 | Zonal Z2 / Z4 over 30 mm DSV (ppm at DSV radius, unshimmed) | -66.609 / -0.0585 |
+| R42 | Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs | 99.95 -> 0.264 ppm / 177.74 -> 1.364 ppm |
+| R43 | Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed) | 40.0 mm, +-20.0 / +-60.0 mm, 1.91 / 38.90 A, 0.689 W |
+| R44 | Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21 | -2.220 / 0.0888 ppm |
+| R45 | Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on grid) | R2 700 mm, L 2600 mm, P 38.7 kW + pump 0.86 kW, 14.85 V, 2603 A, 31.5 t Cu, 1645 L/min, 1024 -> 9.92 ppm, T_hot 22.07 C (violates 8 V) |
+| R46 | Field drift vs copper temperature at fixed current (numeric, isotropic expansion) | -16.500 ppm/K |
+| R47 | B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total | 2.000 / 0.333 / 2.527 / 4.439 ppm (94.5 Hz at f_L); voltage-regulated total 601.9 ppm |
+| R48 | Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode) | 0.0606 / 2.54e-04 K ; 0.0459 / 1.93e-04 K |
+| R49 | RF SNR, Swiss-roll slab vs same coil over air / vs coil on tissue (loss x50, best tuning f0/f_L) | 1.503 / 0.255 (f0/f_L = 1.0550, mu = 5.78 + 0.44j) |
+| R50 | RF SNR vs air for loss multiplier 1 / 10 / 50 | 3.231 / 2.366 / 1.503 |
+| R51 | RF resistances with slab: coil / tissue / slab | 0.0356 / 0.0359 / 0.1354 ohm |
+
+How to read these numbers:
+- **Shims.** Two thin-loop pairs inside the bore cancel Z2 and Z4. What is left is mostly Z6.
+- **Head preset.** It sits at the upper end of the R2 grid in `head_preset()`, so it is not a converged optimum. The design is heavy and needs more than the 8 V supply. A copper-cost figure appears only when you pass a price: `head_preset(copper_usd_per_kg=...)`.
+- **Stability.** At fixed current, B falls with copper temperature by the R46 coefficient (thermal expansion). A voltage-regulated supply adds the copper resistance coefficient on top, which gives the voltage-mode total in R47. So the magnet needs a current-regulated supply and chiller water held within the R48 amplitude.
+- **RF.** This model is quasi-static: a surface loop, a laterally infinite uniaxial Swiss-roll slab, and a conducting half-space for the tissue. The roll array improves on the same coil held off over an air gap. It does not beat putting the coil straight on the tissue. The old E28 heuristic (R31) overstated the gain.
+- **Not done.** Tesseral terms from the helical current path are not computed. The segment engine could compute them, but this release does not.
+
+![fmri](figures/fig7_fmri.png)
 
 ## Validation (details in [VALIDATION.md](VALIDATION.md))
 
