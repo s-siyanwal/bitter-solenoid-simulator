@@ -100,3 +100,31 @@ def test_demo_page_labels():
         "Not an MRI noise floor",
     ):
         assert needle in html, needle
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_js_fmri_layer_matches_python():
+    from bittersim import harmonics as H, stability as S, rfsnr as Q
+    geo = (0.05, 0.3, 1.1, 230440.0)
+    res = {"B0": 0.5, "T_in": 20.0, "T_cu_mean_C": 20.9}
+    js = ("const b=require(%r);const s=b.shims(0.05,0.3,1.1,230440.0,0.03);"
+          "const st=b.stability({B0:0.5,T_in:20,T_cu_mean_C:20.9},54.3,0.657,{mode:'voltage'});"
+          "const rf=b.rfCompare(0.5,1.03,50);"
+          "console.log(JSON.stringify({p0:s.ppm_unshimmed,p1:s.ppm_shimmed,I:s.shim_NI_A,W:s.shim_power_W,"
+          "tot:st.budget_ppm.total,res:st.budget_ppm.resistance_drift,g:rf.gain_vs_air,gc:rf.gain_vs_contact,"
+          "rs:rf.slab.R_slab,j1:b.besselJ1(3.7)}))") % JS
+    out = _node(js)
+    s = H.shimmed_homogeneity(*geo, dsv=0.03)
+    assert out["p0"] == pytest.approx(s["ppm_unshimmed"], rel=1e-8)
+    assert out["p1"] == pytest.approx(s["ppm_shimmed"], rel=1e-6)
+    assert out["I"] == pytest.approx(s["shim_NI_A"], rel=1e-6)
+    assert out["W"] == pytest.approx(s["shim_power_W"], rel=1e-6)
+    st = S.simulate(res, 54.3, 0.657, {"mode": "voltage"})
+    assert out["tot"] == pytest.approx(st["budget_ppm"]["total"], rel=1e-9)
+    assert out["res"] == pytest.approx(st["budget_ppm"]["resistance_drift"], rel=1e-9)
+    c = Q.compare(B0=0.5, detune=1.03, loss_multiplier=50.0)
+    from scipy.special import j1
+    assert out["j1"] == pytest.approx(float(j1(3.7)), abs=1e-7)
+    assert out["g"] == pytest.approx(c["gain_vs_air"], rel=1e-6)      # J1 approximation ~1e-8
+    assert out["gc"] == pytest.approx(c["gain_vs_contact"], rel=1e-6)
+    assert out["rs"] == pytest.approx(c["slab"]["R_slab"], rel=1e-6)

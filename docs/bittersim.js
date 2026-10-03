@@ -123,7 +123,9 @@
     return { d: d, C: C, NI: NI, I: I, nTurns: nT, V: V, P: P, Ppump: fl.dp * Qtot / d.eta_pump, Re: fl.Re, h: fl.h, hg: fl.hg,
       dp: fl.dp, flowLmin: Qtot * 60000, nHoles: nHoles, Tout: d.T_in + dTmix, Thot: Th, Tcu: Tcu, dTw: dTw, dTf: dTf, dTc: dTc,
       ppm: hom[0], B0num: hom[1], Jin: C / (lam * R1) / 1e6, hoop: C * d.B0 / lam / 1e6, lam: lam, loops: loops,
-      mass: Math.PI * (R2 * R2 - R1 * R1) * L * lam * DCU, fL: GAMMA_P * d.B0 / (2 * Math.PI) / 1e6 };
+      mass: Math.PI * (R2 * R2 - R1 * R1) * L * lam * DCU, fL: GAMMA_P * d.B0 / (2 * Math.PI) / 1e6,
+      Cth: Math.PI * (R2 * R2 - R1 * R1) * L * lam * DCU * 385, Rth: 1 / (fl.h * Awet * nHoles * L),
+      P20: 2 * Math.PI * RHO20 * C * C * L * lnr / lam };
   }
   // Swiss roll (E25-E27), defaults identical to the Python SwissRoll class
   function swissRoll(fTune, o) {
@@ -415,7 +417,144 @@
     };
   }
 
-  var api = { evaluate: evaluate, bitterAxis: bitterAxis, fieldLoops: fieldLoops, swissRoll: swissRoll, snrGain: snrGain,
+  // ------------------------------------------------------------------ fMRI layer (Python: harmonics.py, stability.py, rfsnr.py)
+  function bitterLoopsN(R1, R2, L, C, nr, nz, panels) {
+    var gr = gauss(nr, R1, R2, 1), gz = gauss(nz, -L / 2, L / 2, panels), loops = [];
+    for (var i = 0; i < gr[0].length; i++)
+      for (var j = 0; j < gz[0].length; j++) loops.push([gr[0][i], gz[0][j], C / gr[0][i] * gr[1][i] * gz[1][j]]);
+    return loops;
+  }
+  function lstsq(V, f) {            // Householder QR least squares (V: m x n array of rows)
+    var m = V.length, n = V[0].length, A = V.map(function (r) { return r.slice(); }), b = f.slice(), j, i, k;
+    for (j = 0; j < n; j++) {
+      var nrm = 0; for (i = j; i < m; i++) nrm += A[i][j] * A[i][j]; nrm = Math.sqrt(nrm);
+      var alpha = A[j][j] > 0 ? -nrm : nrm, v = [];
+      for (i = 0; i < m; i++) v.push(i < j ? 0 : A[i][j]); v[j] -= alpha;
+      var vv = 0; for (i = j; i < m; i++) vv += v[i] * v[i]; if (vv === 0) continue;
+      for (k = j; k < n; k++) { var s = 0; for (i = j; i < m; i++) s += v[i] * A[i][k]; s = 2 * s / vv; for (i = j; i < m; i++) A[i][k] -= s * v[i]; }
+      var sb = 0; for (i = j; i < m; i++) sb += v[i] * b[i]; sb = 2 * sb / vv; for (i = j; i < m; i++) b[i] -= sb * v[i];
+    }
+    var x = new Array(n);
+    for (j = n - 1; j >= 0; j--) { var t = b[j]; for (k = j + 1; k < n; k++) t -= A[j][k] * x[k]; x[j] = t / A[j][j]; }
+    return x;
+  }
+  var N_AXIS = 12, J_SHIM = 2.0e6;
+  function axisNodes(r0) { var z = []; for (var k = 0; k < 33; k++) z.push(r0 * Math.cos(Math.PI * (k + 0.5) / 33)); return z; }
+  function polyFitAxis(z, f, r0) {
+    var V = z.map(function (zz) { var row = [], x = zz / r0, p = 1; for (var n = 0; n <= N_AXIS; n++) { row.push(p); p *= x; } return row; });
+    return lstsq(V, f);
+  }
+  function bitterAxisZ(R1, R2, L, C, z) {
+    function t(zeta) { return Math.asinh(zeta / R1) - Math.asinh(zeta / R2); }
+    return 0.5 * MU0 * C * (t(L / 2 - z) + t(L / 2 + z));
+  }
+  function loopAxis(a, I, z) { return MU0 * I * a * a / (2 * Math.pow(a * a + z * z, 1.5)); }
+  function shims(R1, R2, L, C, dsv, o) {
+    o = Object.assign({ gap: 0.01, zf: [0.5, 1.5], nr: 12, nz: 32, panels: 8 }, o || {});
+    var r0 = dsv / 2, a = R1 - o.gap, zs = o.zf.map(function (f) { return f * a; }), z = axisNodes(r0);
+    var main = polyFitAxis(z, z.map(function (zz) { return bitterAxisZ(R1, R2, L, C, zz); }), r0);
+    var cols = zs.map(function (zk) { return polyFitAxis(z, z.map(function (zz) { return loopAxis(a, 1, zz - zk) + loopAxis(a, 1, zz + zk); }), r0); });
+    var A = [[cols[0][2], cols[1][2]], [cols[0][4], cols[1][4]]], det = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+    var I0 = (-main[2] * A[1][1] + main[4] * A[0][1]) / det, I1 = (-main[4] * A[0][0] + main[2] * A[1][0]) / det;
+    var coil = bitterLoopsN(R1, R2, L, C, o.nr, o.nz, o.panels);
+    var tot = coil.concat([[a, zs[0], I0], [a, -zs[0], I0], [a, zs[1], I1], [a, -zs[1], I1]]);
+    var h0 = homogeneity(coil, r0), h1 = homogeneity(tot, r0);
+    return { ppm_unshimmed: h0[0], ppm_shimmed: h1[0], shim_radius_m: a, shim_z_m: zs, shim_NI_A: [I0, I1],
+             shim_power_W: 2 * RHO20 * J_SHIM * (Math.abs(I0) + Math.abs(I1)) * 2 * Math.PI * a,
+             zonal_ppm_unshimmed: main.map(function (c) { return c / main[0] * 1e6; }) };
+  }
+  var ALPHA_L = 16.5e-6;
+  var STAB_SPEC = { mode: "current", ripple_ppm: 1.0, ripple_hz: 300.0, drift_ppm_per_h: 2.0, water_amp_K: 0.1,
+                    water_period_s: 300.0, water_drift_K_per_h: 0.5, duration_s: 600.0, target_ppm: 1.0 };
+  function stability(res, tau, LR, spec) {
+    var sp = Object.assign({}, STAB_SPEC, spec || {}), dt = 0.1, n = Math.floor(sp.duration_s / dt + 0.5) + 1;
+    var w = 2 * Math.PI * sp.ripple_hz, fL = GAMMA_P * res.B0 / (2 * Math.PI), rise = res.T_cu_mean_C - res.T_in;
+    var a = isFinite(tau) ? Math.exp(-dt / tau) : 1, Tc = res.T_cu_mean_C, T0 = res.T_cu_mean_C;
+    var mn = { d: 1e300, e: 1e300, r: 1e300, s: 1e300 }, mx = { d: -1e300, e: -1e300, r: -1e300, s: -1e300 }, series = [];
+    for (var i = 0; i < n; i++) {
+      var t = i * dt;
+      if (i > 0) { var tp = (i - 1) * dt; var Tin = res.T_in + sp.water_amp_K * Math.sin(2 * Math.PI * tp / sp.water_period_s) + sp.water_drift_K_per_h * tp / 3600; Tc = a * Tc + (1 - a) * (Tin + rise); }
+      var d = sp.drift_ppm_per_h * t / 3600, e = -ALPHA_L * (Tc - T0) * 1e6;
+      var r = sp.mode === "current" ? 0 : ((1 + ALPHA * (T0 - 20)) / (1 + ALPHA * (Tc - 20)) - 1) * 1e6, s = d + e + r;
+      [["d", d], ["e", e], ["r", r], ["s", s]].forEach(function (q) { mn[q[0]] = Math.min(mn[q[0]], q[1]); mx[q[0]] = Math.max(mx[q[0]], q[1]); });
+      if (i % 10 === 0) series.push([t, s]);
+    }
+    var ra = sp.mode === "current" ? sp.ripple_ppm : sp.ripple_ppm / Math.sqrt(1 + Math.pow(w * LR, 2));
+    var b = { psu_ripple: 2 * ra, psu_drift: mx.d - mn.d, thermal_expansion: mx.e - mn.e, resistance_drift: mx.r - mn.r,
+              total: mx.s - mn.s + 2 * ra };
+    return { budget_ppm: b, total_Hz: b.total * fL / 1e6, f_larmor_Hz: fL, meets_target: b.total <= sp.target_ppm, series: series, spec: sp };
+  }
+  // Bessel J1 (rational approximations, |err| < 1e-8), complex helpers
+  function besselJ1(x) {
+    var ax = Math.abs(x), y, ans1, ans2;
+    if (ax < 8) {
+      y = x * x;
+      ans1 = x * (72362614232.0 + y * (-7895059235.0 + y * (242396853.1 + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
+      ans2 = 144725228442.0 + y * (2300535178.0 + y * (18583304.74 + y * (99447.43394 + y * (376.9991397 + y))));
+      return ans1 / ans2;
+    }
+    var z = 8 / ax, xx = ax - 2.356194491; y = z * z;
+    ans1 = 1 + y * (0.183105e-2 + y * (-0.3516396496e-4 + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
+    ans2 = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5 + y * (-0.88228987e-6 + y * 0.105787412e-6)));
+    var r = Math.sqrt(0.636619772 / ax) * (Math.cos(xx) * ans1 - z * Math.sin(xx) * ans2);
+    return x < 0 ? -r : r;
+  }
+  function cx(re, im) { return [re, im || 0]; }
+  function cadd(a, b) { return [a[0] + b[0], a[1] + b[1]]; }
+  function csub(a, b) { return [a[0] - b[0], a[1] - b[1]]; }
+  function cmul(a, b) { return [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]; }
+  function cdiv(a, b) { var d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; }
+  function cexp(a) { var e = Math.exp(a[0]); return [e * Math.cos(a[1]), e * Math.sin(a[1])]; }
+  function csqrt(a) { var r = Math.hypot(a[0], a[1]), re = Math.sqrt((r + a[0]) / 2), im = Math.sqrt(Math.max(0, (r - a[0]) / 2)); return [re, a[1] < 0 ? -im : im]; }
+  function cabs2(a) { return a[0] * a[0] + a[1] * a[1]; }
+  var RF_DEFAULTS = { a: 0.03, d_wire: 2e-3, gap: 2e-3, t_slab: 0.05, depth: 0.02, sigma: 0.5, T_coil: 293, T_tissue: 310, T_slab: 293 };
+  function rfEvaluate(mu, p, f) {
+    var q = Object.assign({}, RF_DEFAULTS, p || {}), a = q.a, g = q.gap, t = q.t_slab, d = q.depth, w = 2 * Math.PI * f;
+    var N = 6000, ks = [], B1i = [], Rti = [], Rsi = [], i, j, NS = 41;
+    var smu = mu ? csqrt(cx(mu[0], mu[1])) : null;
+    for (i = 0; i < N; i++) {
+      var u = i / (N - 1), k = (60 / a) * u * u + 1e-9, J = besselJ1(k * a), tau, hz2 = 0;
+      if (!mu) { tau = cx(Math.exp(-k * (g + t))); }
+      else {
+        var qk = cdiv(cx(k), smu), E = cexp(cmul(qk, cx(-t))), inc = Math.exp(-k * g), eta = smu;
+        var one = cx(1), BpA = cdiv(cmul(E, csub(eta, one)), cadd(eta, one));
+        var A = cdiv(cx(2 * inc), cadd(cadd(one, eta), cmul(cmul(BpA, E), csub(one, eta)))), Bp = cmul(BpA, A);
+        tau = cadd(cmul(A, E), Bp);
+        var prev = null;
+        for (j = 0; j < NS; j++) {
+          var s = t * j / (NS - 1);
+          var h = cmul(qk, csub(cmul(A, cexp(cmul(qk, cx(-s)))), cmul(Bp, cexp(cmul(qk, cx(s - t))))));
+          var v = cabs2(h); if (prev !== null) hz2 += 0.5 * (v + prev) * t / (NS - 1); prev = v;
+        }
+      }
+      ks.push(k);
+      B1i.push(cmul(cx(k * J * Math.exp(-k * d)), tau));
+      Rti.push(cabs2(tau) * J * J / (k * k));
+      Rsi.push(J * J * hz2 / k);
+    }
+    var B1 = cx(0), Rt = 0, Rs = 0;
+    for (i = 1; i < N; i++) {
+      var dk = ks[i] - ks[i - 1];
+      B1 = cadd(B1, cmul(cx(0.5 * dk), cadd(B1i[i], B1i[i - 1]))); Rt += 0.5 * dk * (Rti[i] + Rti[i - 1]); Rs += 0.5 * dk * (Rsi[i] + Rsi[i - 1]);
+    }
+    var b1 = MU0 * (a / 2) * Math.hypot(B1[0], B1[1]);
+    var Rtis = q.sigma * w * w * MU0 * MU0 * Math.PI * a * a / 4 * Rt;
+    var Rsl = mu ? w * MU0 * Math.abs(mu[1]) * 2 * Math.PI * (a / 2) * (a / 2) * Rs : 0;
+    var delta = Math.sqrt(2 * RHO20 / (w * MU0)), Rc = 2 * a * RHO20 / (q.d_wire * delta);
+    var noise = Math.sqrt(q.T_coil * Rc + q.T_tissue * Rtis + q.T_slab * Rsl);
+    return { B1_T_per_A: b1, R_coil: Rc, R_tissue: Rtis, R_slab: Rsl, snr_metric: b1 / noise };
+  }
+  function rfCompare(B0, detune, lossMult, p) {
+    var fL = GAMMA_P * B0 / (2 * Math.PI), mu = swissRoll(fL * detune, { lossMult: lossMult === undefined ? 50 : lossMult }).mu(fL);
+    var q = Object.assign({}, RF_DEFAULTS, p || {});
+    var s = rfEvaluate(mu, q, fL), air = rfEvaluate(null, q, fL), con = rfEvaluate(null, Object.assign({}, q, { gap: 0, t_slab: 0 }), fL);
+    return { mu: mu, slab: s, air: air, contact: con, gain_vs_air: s.snr_metric / air.snr_metric, gain_vs_contact: s.snr_metric / con.snr_metric };
+  }
+  function lumpedTau(P20, Cth, Rth) { var k = 1 / Rth - ALPHA * P20; return k <= 0 ? Infinity : Cth / k; }
+
+  var api = { shims: shims, zonalFit: polyFitAxis, stability: stability, rfEvaluate: rfEvaluate, rfCompare: rfCompare,
+              besselJ1: besselJ1, lumpedTau: lumpedTau, STAB_SPEC: STAB_SPEC, RF_DEFAULTS: RF_DEFAULTS,
+              evaluate: evaluate, bitterAxis: bitterAxis, fieldLoops: fieldLoops, swissRoll: swissRoll, snrGain: snrGain,
               ellipke: ellipke, loopField: loopField, MU0: MU0, drude: drude, johnson: johnson,
               coolantProps: coolantProps, catalogIds: catalogIds, requireMaterial: requireMaterial,
               emulateFast: emulateFast, tsatC: tsatC, conductorSpec: conductorSpec, LABEL: LABEL,

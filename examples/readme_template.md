@@ -23,12 +23,15 @@ package/bittersim/   simulation package
   mechanics.py       Lorentz force, hoop stress, axial compression
   swissroll.py       Pendry/Lorentzian mu_eff, skin-effect losses, heuristic SNR gain
   optimize.py        differential_evolution + SLSQP constrained optimisation
+  harmonics.py       spherical-harmonic fit, Z2/Z4 shim loop pairs, tolerance (tesseral) model, head-bore preset
+  stability.py       time-domain B0 stability: PSU ripple/drift, copper expansion, water-temperature drift
+  rfsnr.py           quasi-static RF receive model: coil, Swiss-roll slab and tissue losses, SNR ratios
   validation.py      V&V suite used by VALIDATION.md
   cli.py             command line interface (python -m bittersim)
 tests/               pytest: analytic limits, convergence, energy balance, web-demo parity, emulation
 notebooks/           Colab/Jupyter notebook with ipywidgets sliders
 docs/                static web demo (index.html + bittersim.js), no install needed
-examples/            run_all.py (reproduces all results/figures), make_docs.py, run_emulation.py
+examples/            run_all.py (reproduces all results/figures), run_fmri.py (fMRI layer), make_docs.py, run_emulation.py
 figures/ results/    generated outputs
 VALIDATION.md        validation tables and plots    DESIGN_SUMMARY.md  equation-labelled summary for review
 EMULATION.md         mesoscopic emulation grades, formulas, and non-goals
@@ -48,7 +51,7 @@ python -m bittersim swissroll
 python -m bittersim catalog
 python -m bittersim emulate --realizations 50 --seed 1
 python examples/run_emulation.py
-python examples/run_all.py && python examples/make_docs.py   # regenerate everything
+python examples/run_all.py && python examples/run_fmri.py && python examples/make_docs.py   # regenerate everything
 ```
 
 (Without `pip install -e .`, prefix the commands with `PYTHONPATH=package`.)
@@ -98,6 +101,21 @@ At the optimum:
 - **Large margins:** hot-spot temperature and supply voltage.
 
 At 0.5 T the design is therefore driven by field quality and size, not by cooling. The blueprint's initial guess (R33) violates both the 8 V limit and the homogeneity target.
+
+## fMRI layer: shims, head preset, B0 stability, RF SNR
+
+`examples/run_fmri.py` writes `results/fmri.json` and `figures/fig7_fmri.png` from the published optimum (it does not rerun the optimiser). Modules: `harmonics.py` (spherical harmonics H1-H4, Z2/Z4 shim loop pairs, tolerance model, head preset), `stability.py` (S1-S4) and `rfsnr.py` (Q1-Q6). Every default input is an **assumption** and is copied into `fmri.json` under `assumptions`: shim J, head bore and DSV, PSU and chiller specs, the 1 ppm EPI target, coil, slab and tissue geometry, tissue conductivity, and the Swiss-roll loss multiplier.
+
+{{FMRI_TABLE}}
+
+How to read these numbers:
+- **Shims.** Two thin-loop pairs inside the bore cancel Z2 and Z4. What is left is mostly Z6.
+- **Head preset.** It sits at the upper end of the R2 grid in `head_preset()`, so it is not a converged optimum. The design is heavy and needs more than the 8 V supply. A copper-cost figure appears only when you pass a price: `head_preset(copper_usd_per_kg=...)`.
+- **Stability.** At fixed current, B falls with copper temperature by the R46 coefficient (thermal expansion). A voltage-regulated supply adds the copper resistance coefficient on top, which gives the voltage-mode total in R47. So the magnet needs a current-regulated supply and chiller water held within the R48 amplitude.
+- **RF.** This model is quasi-static: a surface loop, a laterally infinite uniaxial Swiss-roll slab, and a conducting half-space for the tissue. The roll array improves on the same coil held off over an air gap. It does not beat putting the coil straight on the tissue. The old E28 heuristic (R31) overstated the gain.
+- **Not done.** Tesseral terms from the helical current path are not computed. The segment engine could compute them, but this release does not.
+
+![fmri](figures/fig7_fmri.png)
 
 ## Validation (details in [VALIDATION.md](VALIDATION.md))
 

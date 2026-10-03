@@ -43,7 +43,7 @@
   <h1>0.5 T water-cooled copper Bitter solenoid</h1>
   <p>Continuum simulation vs mesoscopic emulation. <a href="PROJECT_REPORT.md">Project report</a>
   · <a href="report/bitter_solenoid_report.tex">LaTeX report</a>.
-  Model grade: continuum identities are established; contact scatter, ONB and the Langevin cloud are approximate; Swiss-roll SNR is speculative.</p>
+  Model grade: continuum identities are established; contact scatter, ONB and the Langevin cloud are approximate; the legacy Swiss-roll SNR heuristic is speculative; the fMRI panel uses a quasi-static RF model.</p>
 </header>
 <main>
 <section>
@@ -129,8 +129,21 @@
   <div class="card"><b>Side by side</b><table id="side"></table></div>
   <div class="card">
     <b>Swiss roll μ_eff near Larmor (RF only; μ_eff(0) = 1)</b>
-    <p class="note">Heuristic SNR, not an MRI measurement.</p>
+    <p class="note">μ_eff curve. SNR now comes from the quasi-static RF model in the fMRI panel; the E28 heuristic is kept only for reference.</p>
     <canvas id="cm" width="720" height="220"></canvas>
+  </div>
+  <div class="card" id="fmriCard">
+    <b>fMRI layer: shims, B0 stability, RF SNR</b>
+    <p class="note">Same equations as harmonics.py, stability.py and rfsnr.py (parity-tested). Every input default is an assumption; replace with vendor data.</p>
+    <label>PSU regulation <select id="psuMode"><option value="current">current-regulated</option><option value="voltage">voltage-regulated</option></select></label>
+    <label>PSU ripple amplitude [ppm] <input id="psuRipple" type="number" value="1" step="0.1" min="0"></label>
+    <label>PSU drift [ppm/h] <input id="psuDrift" type="number" value="2" step="0.1" min="0"></label>
+    <label>water oscillation amplitude [K] <input id="waterAmp" type="number" value="0.1" step="0.01" min="0"></label>
+    <label>water drift [K/h] <input id="waterDrift" type="number" value="0.5" step="0.1"></label>
+    <label>Swiss-roll loss multiplier <input id="lossMult" type="number" value="50" step="1" min="1"></label>
+    <table id="fmriOut"></table>
+    <canvas id="cstab" width="720" height="180"></canvas>
+    <p class="note" id="fmriNote"></p>
   </div>
 </section>
 </main>
@@ -481,7 +494,8 @@ function run() {
   plotLine(document.getElementById("cm"), fs, [re, im], ["#e63946", "#457b9d"], "mu' red, mu'' blue");
   var mL = sr.mu(fL);
   document.getElementById("out").innerHTML += row("Swiss roll mu_eff at f_L", f(mL[0], 2) + " + " + f(mL[1], 2) + "j") +
-    row("heuristic SNR gain", f(BitterSim.snrGain(mL), 3));
+    row("legacy heuristic SNR gain (E28, superseded)", f(BitterSim.snrGain(mL), 3));
+  scheduleFmri(r, p);
   constraints(r, p);
   side(r, p);
   drawSchematic(p, r);
@@ -491,6 +505,36 @@ function run() {
   drawSpark(r, p);
   window.__last = { p: p, r: r };
 }
+var fmriTimer = null;
+function scheduleFmri(r, p) { clearTimeout(fmriTimer); fmriTimer = setTimeout(function () { runFmri(r, p); }, 120); }
+function numIn(id) { var x = parseFloat(document.getElementById(id).value); return isNaN(x) ? 0 : x; }
+function runFmri(r, p) {
+  var f = function (x, n) { return x.toFixed(n); };
+  var sh = BitterSim.shims(p.R1, p.R2, p.L, r.C, p.dsv);
+  var tau = BitterSim.lumpedTau(r.P20, r.Cth, r.Rth);
+  var st = BitterSim.stability({ B0: p.B0, T_in: p.T_in, T_cu_mean_C: r.Tcu }, tau, 0.657, {
+    mode: document.getElementById("psuMode").value, ripple_ppm: numIn("psuRipple"), drift_ppm_per_h: numIn("psuDrift"),
+    water_amp_K: numIn("waterAmp"), water_drift_K_per_h: numIn("waterDrift") });
+  var rf = BitterSim.rfCompare(p.B0, sliderVal("detune"), Math.max(1, numIn("lossMult")));
+  var b = st.budget_ppm;
+  document.getElementById("fmriOut").innerHTML =
+    row("DSV p-p, unshimmed / Z2+Z4 shim pairs", f(sh.ppm_unshimmed, 2) + " / " + f(sh.ppm_shimmed, 3), "ppm", sh.ppm_shimmed <= 10) +
+    row("zonal Z2 / Z4 at DSV radius (unshimmed)", f(sh.zonal_ppm_unshimmed[2], 3) + " / " + f(sh.zonal_ppm_unshimmed[4], 4), "ppm") +
+    row("shim pairs NI / power (J = 2 A/mm^2 assumed)", f(sh.shim_NI_A[0], 1) + ", " + f(sh.shim_NI_A[1], 1) + " A / " + f(sh.shim_power_W, 2) + " W") +
+    row("thermal time constant (lumped)", f(tau, 1), "s") +
+    row("B0 stability, p-p over 10 min: ripple / PSU drift / expansion / R drift", f(b.psu_ripple, 3) + " / " + f(b.psu_drift, 3) + " / " + f(b.thermal_expansion, 3) + " / " + f(b.resistance_drift, 3), "ppm") +
+    row("B0 stability total vs 1 ppm EPI target", f(b.total, 3) + " ppm = " + f(st.total_Hz, 1) + " Hz", "", st.meets_target) +
+    row("RF SNR vs same coil over air / vs coil on tissue", f(rf.gain_vs_air, 3) + " / " + f(rf.gain_vs_contact, 3), "");
+  var xs = st.series.map(function (q) { return q[0]; }), ys = st.series.map(function (q) { return q[1]; });
+  plotLine(document.getElementById("cstab"), xs, [ys], ["#1d3557"], "slow dB/B [ppm] vs t [s] (ripple not drawn)");
+  document.getElementById("fmriNote").textContent = "Shim loops at radius " + f(sh.shim_radius_m * 1e3, 1) +
+    " mm (uses 10 mm of bore). L/R for voltage-mode ripple is fixed at the seed-1 value 0.657 s (inductance is not ported to the browser). RF: quasi-static loop + uniaxial Swiss-roll slab + conducting half-space; R_coil " +
+    rf.slab.R_coil.toExponential(3) + ", R_tissue " + rf.slab.R_tissue.toExponential(3) + ", R_slab " + rf.slab.R_slab.toExponential(3) + " ohm.";
+  window.__fmri = { sh: sh, st: st, rf: rf };
+}
+["psuMode", "psuRipple", "psuDrift", "waterAmp", "waterDrift", "lossMult"].forEach(function (id) {
+  document.getElementById(id).addEventListener("change", function () { if (window.__last) runFmri(window.__last.r, window.__last.p); });
+});
 function applyPreset(name) {
   activePreset = name;
   var s = BitterSim.presets()[name];
