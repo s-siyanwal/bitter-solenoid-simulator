@@ -19,6 +19,7 @@ package/bittersim/   simulation package
   design.py          coupled electrical / thermal / hydraulic evaluation of a design
   catalog.py         material allow-list (conductors, coolants, insulators, housings)
   emulation.py       mesoscopic emulation (Drude RVE, contact scatter, ONB flags; tolerance MC with workers=n); not molecular dynamics
+  helical.py         helical Bitter current path (slit/overlap staircase, return bus) for the segment engine; harmonics and shim ladder
   particles.py       parallel particle emulation: Biot-Savart current elements, Green-Kubo carriers, Feynman-Kac heat walkers
   thermal.py         Re, Pr, Dittus-Boelter, Gnielinski, friction, pressure drop, hot spot, lumped transient
   mechanics.py       Lorentz force, hoop stress, axial compression
@@ -32,7 +33,7 @@ package/bittersim/   simulation package
 tests/               pytest: analytic limits, convergence, energy balance, web-demo parity, emulation
 notebooks/           Colab/Jupyter notebook with ipywidgets sliders
 docs/                static web demo (index.html + bittersim.js), no install needed
-examples/            run_all.py (reproduces all results/figures), run_fmri.py (fMRI layer), make_docs.py, run_emulation.py, run_particles.py
+examples/            run_all.py (reproduces all results/figures), run_fmri.py (fMRI layer), make_docs.py, run_emulation.py, run_particles.py, run_helical.py, run_head.py
 figures/ results/    generated outputs
 VALIDATION.md        validation tables and plots    DESIGN_SUMMARY.md  equation-labelled summary for review
 EMULATION.md         mesoscopic emulation grades, formulas, and non-goals
@@ -68,7 +69,7 @@ Kaggle works the same way: add the repo as a dataset.
 
 ### Web demo (no install)
 
-Open `docs/index.html` in any browser, including from a file URL. It is a plain-JS port of the analytic core: E4 field, exact elliptic loop fields for homogeneity, the thermal and hydraulic model, and Swiss-roll μ_eff. `tests/test_webdemo.py` checks that it agrees with the Python model to 1e-9, and that the PDF-guess and seed-1 presets match the printed precision. The page draws the plate stack, a coarse Bz map, constraint chips, and a button-triggered emulation (quantile bars, a Langevin cloud in one representative volume, a pump-failure sketch). Every emulation panel is labelled mesoscopic emulation, not molecular dynamics. An id that is not in the catalog is refused. The living write-up is [PROJECT_REPORT.md](PROJECT_REPORT.md) and [report/bitter_solenoid_report.tex](report/bitter_solenoid_report.tex). `examples/update_report.py` refreshes the numerical TeX tables after `run_all.py` or `run_emulation.py`.
+Open `docs/index.html` in any browser, including from a file URL. It is a plain-JS port of the analytic core: E4 field, exact elliptic loop fields for homogeneity, the thermal and hydraulic model, and Swiss-roll μ_eff. `tests/test_webdemo.py` checks that it agrees with the Python model to 1e-9, and that the PDF-guess and seed-1 presets match the printed precision. The page draws the plate stack, a coarse Bz map, constraint chips, and a button-triggered emulation (quantile bars, a Langevin cloud in one representative volume, a pump-failure sketch). Every emulation panel is labelled mesoscopic emulation, not molecular dynamics. A reduced-N particle panel ports P1 (current elements: axis field and its error against E4, identical to Python at equal N; `tests/test_webdemo_particles.py`) and P2 (Green–Kubo carriers, statistically tested). An id that is not in the catalog is refused. The living write-up is [PROJECT_REPORT.md](PROJECT_REPORT.md) and [report/bitter_solenoid_report.tex](report/bitter_solenoid_report.tex). `examples/update_report.py` refreshes the numerical TeX tables after `run_all.py` or `run_emulation.py`.
 
 ### Simulation vs emulation
 
@@ -148,7 +149,7 @@ At 0.5 T the design is therefore driven by field quality and size, not by coolin
 | R42 | Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs | 99.95 -> 0.264 ppm / 177.74 -> 1.364 ppm |
 | R43 | Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed) | 40.0 mm, +-20.0 / +-60.0 mm, 1.91 / 38.90 A, 0.689 W |
 | R44 | Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21 | -2.220 / 0.0888 ppm |
-| R45 | Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on grid) | R2 700 mm, L 2600 mm, P 38.7 kW + pump 0.86 kW, 14.85 V, 2603 A, 31.5 t Cu, 1645 L/min, 1024 -> 9.92 ppm, T_hot 22.07 C (violates 8 V) |
+| R45 | Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on the old R2 <= 0.7 m grid, see R60 for the optimiser) | R2 700 mm, L 2600 mm, P 38.7 kW + pump 0.86 kW, 14.85 V, 2603 A, 31.5 t Cu, 1645 L/min, 1024 -> 9.92 ppm, T_hot 22.07 C (violates 8 V) |
 | R46 | Field drift vs copper temperature at fixed current (numeric, isotropic expansion) | -16.500 ppm/K |
 | R47 | B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total | 2.000 / 0.333 / 2.527 / 4.439 ppm (94.5 Hz at f_L); voltage-regulated total 601.9 ppm |
 | R48 | Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode) | 0.0606 / 2.54e-04 K ; 0.0459 / 1.93e-04 K |
@@ -161,7 +162,7 @@ How to read these numbers:
 - **Head preset.** It sits at the upper end of the R2 grid in `head_preset()`, so it is not a converged optimum. The design is heavy and needs more than the 8 V supply. A copper-cost figure appears only when you pass a price: `head_preset(copper_usd_per_kg=...)`.
 - **Stability.** At fixed current, B falls with copper temperature by the R46 coefficient (thermal expansion). A voltage-regulated supply adds the copper resistance coefficient on top, which gives the voltage-mode total in R47. So the magnet needs a current-regulated supply and chiller water held within the R48 amplitude.
 - **RF.** This model is quasi-static: a surface loop, a laterally infinite uniaxial Swiss-roll slab, and a conducting half-space for the tissue. The roll array improves on the same coil held off over an air gap. It does not beat putting the coil straight on the tissue. The old E28 heuristic (R31) overstated the gain.
-- **Not done.** Tesseral terms from the helical current path are not computed. The segment engine could compute them, but this release does not.
+- **Helical path.** Tesseral terms from the helical current path are computed in the 'Helical current path' section below.
 
 ![fmri](figures/fig7_fmri.png)
 
@@ -224,6 +225,100 @@ How to read these numbers:
 
 ![particles](figures/fig8_particles.png)
 ![particle convergence](figures/fig9_particle_convergence.png)
+
+## Helical current path: non-axisymmetric field errors
+
+`examples/run_helical.py` writes `results/helical.json` and `figures/fig10_helical.png`. It uses the straight-segment Biot–Savart engine (`biot_savart.py`) and the path builder in `helical.py` to model the real Bitter current path for the seed-1 optimum. All geometry inputs below are assumptions:
+
+- 177 flat plates, each carrying one turn with J = C/r across the plate, discretised into 96 radial filaments.
+- A 30° overlap sector in which the current crosses to the next plate. In the model the crossing is a linear ramp in z over that sector.
+- The circuit is closed by a return bus: radial leads at both ends and one axial bus at r = 350 mm.
+
+Three path variants are compared with the ideal axisymmetric coil:
+
+| variant | description |
+|---|---|
+| uniform | uniform-pitch helix |
+| aligned | flat plates with every slit in one angular column |
+| rotating | flat plates with each slit advanced by the overlap angle, plate to plate |
+
+The rotating stack carries more than one turn per plate. Its current is rescaled by 0.9226 so that B0 is unchanged, and the same rescaling (≈1 for the other variants) is applied throughout.
+
+**Method.**
+- The helical error is dB = B(path) − B(planar rings on the same mesh), added to the converged loop model. Mesh error therefore cancels.
+- The table reports the spherical harmonics of |B|, which is what the spins see. To first order |B| = Bz + B_perp²/(2 B0), so the transverse field enters too.
+- Radial discretisation was checked at 48 vs 96 filaments (second-order convergence). The largest Richardson error estimate on any tesseral coefficient is 1.87 ppm overall and 0.016 ppm for the aligned stack.
+- The ladder below nulls whole harmonic orders cumulatively with ideal shims. The orders "needed" come from the shortest prefix of the ladder that brings the coil within 1 ppm of the ideal coil's Z2/Z4-shimmed value (an assumed budget). Within that prefix, only orders whose step lowers p-p by at least 0.1 ppm are listed. "Terms ≥ 1 ppm" lists the individual coefficients at or above 1 ppm.
+
+| DSV | path variant | p-p unshimmed | p-p after Z2/Z4 pairs | largest tesseral terms of abs(B) [ppm at r0] | max B_perp total / helical part [uT] | ideal shims needed (ladder) | terms >= 1 ppm |
+|---|---|---|---|---|---|---|---|
+| 30 mm | ideal | 99.95 | 0.26 | - | 17 / 0 | - | - |
+| 30 mm | uniform | 100.46 | 1.72 | B21 +0.50, A11 +0.48 | 1786 / 1786 | X, Y, ZX, ZY | none |
+| 30 mm | aligned | 126.19 | 34.42 | A11 +14.90, B11 -3.11, A22 +0.65, B21 +0.31 | 4117 / 4117 | Z, X, Y, X2-Y2, XY, n=3 | X, Y |
+| 30 mm | rotating | 1300.60 | 1299.77 | B11 +516.49, A21 -224.68, A11 -138.22, B31 -70.94 | 1790 / 1777 | not reached with n <= 4 | Y, ZX, X, Z2Y, ZY, Z2X, Z3X, Z3Y, B51, X2-Y2, XY, ZXY, A51 |
+| 40 mm | ideal | 177.74 | 1.36 | - | 30 / 0 | - | - |
+| 40 mm | uniform | 178.44 | 3.49 | B21 +0.89, A11 +0.64, A22 +0.01 | 1810 / 1810 | X, Y, ZX, ZY | none |
+| 40 mm | aligned | 215.24 | 47.85 | A11 +20.25, B11 -4.23, A22 +1.19, B21 +0.56 | 4545 / 4544 | Z, X, Y, X2-Y2, XY, n=3 | X, Y, X2-Y2 |
+| 40 mm | rotating | 2009.08 | 2008.13 | B11 +688.67, A21 -399.42, A11 -184.29, B31 -168.16 | 1926 / 1909 | not reached with n <= 4 | Y, ZX, X, Z2Y, ZY, Z3X, Z2X, B51, Z3Y, A51, X2-Y2, A61, ZXY, XY, A42, Z(X2-Y2), B61 |
+
+Peak-to-peak |B| [ppm] along the shim ladder:
+
+| step | ideal 30 mm | uniform 30 mm | aligned 30 mm | rotating 30 mm | ideal 40 mm | uniform 40 mm | aligned 40 mm | rotating 40 mm |
+|---|---|---|---|---|---|---|---|---|
+| unshimmed | 99.95 | 100.46 | 126.19 | 1300.60 | 177.74 | 178.44 | 215.24 | 2009.08 |
+| Z2/Z4 shim pairs (currents solved on the ideal coil) | 0.26 | 1.72 | 34.42 | 1299.77 | 1.36 | 3.49 | 47.85 | 2008.13 |
+| + retune Z1, Z2, Z4 | 0.26 | 1.71 | 31.44 | 1300.41 | 1.36 | 3.48 | 44.09 | 2009.04 |
+| + X, Y | 0.26 | 1.55 | 4.97 | 714.16 | 1.36 | 3.28 | 9.66 | 1304.68 |
+| + ZX, ZY | 0.26 | 0.27 | 4.89 | 299.14 | 1.36 | 1.38 | 9.63 | 707.34 |
+| + X2-Y2, XY | 0.26 | 0.27 | 1.36 | 299.70 | 1.36 | 1.38 | 3.06 | 708.05 |
+| + all n = 3 tesseral | 0.26 | 0.26 | 0.95 | 95.83 | 1.36 | 1.36 | 2.30 | 296.25 |
+| + all n = 4 tesseral | 0.26 | 0.26 | 0.95 | 24.88 | 1.36 | 1.36 | 2.30 | 103.40 |
+
+**What this shows:**
+- The Z2/Z4 pairs only remove zonal terms. The helical errors are mostly tesseral.
+- With aligned slits, the slit column and its return bus act as an off-axis axial current. That produces a transverse field of the order of mT across the bore (R59) and X/Y gradient terms of |B|, so X and Y shims (plus higher orders, per the table) are needed.
+- The uniform helix is close to the ideal coil.
+- A stack whose slits rotate by the overlap angle each plate forms a short-pitch helix of transition currents. That produces large tesseral terms up to high order, which shims of order ≤ 4 cannot remove. A real design should avoid this stacking, or use a coaxial or bifilar return.
+- Not modelled: plate-to-plate contact distribution, hole perforation of the current path, and lead geometry beyond the single bus.
+
+![helical](figures/fig10_helical.png)
+
+## Head preset: optimisation
+
+`examples/run_head.py` writes `results/head.json` and `figures/fig11_head.png` (run time about 16 min). It runs differential evolution with seeds 1–3 over R2, L, plate thickness, hole diameter, water velocity and pitch, at R1 = 190 mm and a 200 mm DSV.
+
+- **Bounds (assumptions):** R2 up to 1.5 m, L up to 5 m, plates up to 20 mm, holes up to 8 mm.
+- **Constraints:** ≤ 10 ppm after Z2/Z4 shims, T_hot ≤ 85 °C, Δp ≤ 5 bar, Re ≥ 1e4, with and without V ≤ 8 V.
+- **Objective:** electrical + pump + shim power. A third run minimises the supply voltage instead.
+
+| run | seed | R2 [mm] | L [mm] | plate [mm] | hole [mm] | v [m/s] | pitch/D | P_elec + pump + shim [kW] | V [V] | I [A] | Cu [t] | p-p shimmed [ppm] | T_hot [C] | bounds hit | active constraints |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| min power, V <= 8 V | 1 | 1474 | 3182 | 19.88 | 7.99 | 1.269 | 7.83 | 33.19 | 3.612 | 8702 | 186.8 | 9.90 | 21.26 | d_plate at upper bound, D_hole at upper bound | none |
+| min power, V <= 8 V | 2 | 1326 | 3104 | 16.31 | 7.98 | 1.257 | 7.98 | 33.25 | 4.495 | 7111 | 146.5 | 9.94 | 21.43 | D_hole at upper bound, pitch_factor at upper bound | Re |
+| min power, V <= 8 V | 3 | 1398 | 3184 | 16.59 | 8.00 | 1.265 | 7.71 | 33.65 | 4.423 | 7244 | 167.2 | 9.56 | 21.31 | D_hole at upper bound | none |
+| min power, no V limit | 1 | 1496 | 3183 | 17.71 | 7.98 | 1.286 | 7.96 | 33.15 | 4.031 | 7775 | 192.4 | 9.98 | 21.25 | R2 at upper bound, D_hole at upper bound, pitch_factor at upper bound | none |
+| min power, no V limit | 2 | 1445 | 3160 | 19.79 | 7.99 | 1.258 | 7.59 | 33.21 | 3.636 | 8657 | 178.0 | 9.98 | 21.26 | D_hole at upper bound | none |
+| min power, no V limit | 3 | 1440 | 3162 | 18.70 | 7.97 | 1.270 | 7.92 | 33.13 | 3.853 | 8180 | 176.9 | 9.94 | 21.31 | D_hole at upper bound | none |
+| min supply voltage | 1 | 1483 | 3179 | 20.00 | 3.47 | 3.063 | 8.00 | 81.68 | 3.578 | 8760 | 188.8 | 9.96 | 20.48 | d_plate at upper bound, pitch_factor at upper bound | none |
+| min supply voltage | 2 | 1498 | 3188 | 19.98 | 5.10 | 3.516 | 7.61 | 83.53 | 3.579 | 8757 | 193.2 | 9.95 | 20.43 | R2 at upper bound, d_plate at upper bound | none |
+| min supply voltage | 3 | 1496 | 3182 | 19.99 | 7.66 | 1.427 | 7.91 | 33.83 | 3.571 | 8762 | 192.3 | 9.99 | 21.16 | R2 at upper bound, d_plate at upper bound | ppm |
+
+How to read it:
+- **Power alone does not have an interior optimum here.** Power keeps falling slowly as R2 grows, so every seed ends near the widened R2 bound, with a very large copper mass. The hole diameter sits at its upper bound.
+- **A practical head design needs a mass or cost term,** or a fixed R2. The table states which bounds bind.
+- **The 8 V limit does not bind.** Thick plates mean fewer turns and a higher current at a low voltage.
+- **The minimum supply voltage is set by the plate-thickness bound.**
+- The old grid result (R45) is kept for reference.
+
+| ID | quantity | value |
+|---|---|---|
+| R57 | Helical path, 30 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform helix / aligned slits / rotating slits | 0.26 / 1.72 / 34.42 / 1299.77 ppm |
+| R58 | Helical path, 40 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform / aligned / rotating | 1.36 / 3.49 / 47.85 / 2008.13 ppm |
+| R59 | Aligned slits, 30 mm DSV: X / Y terms of abs(B); max transverse field (total, with return bus) | 14.90 / -3.11 ppm; 4117 uT |
+| R60 | Head preset optimum (DE, best of seeds 1-3, V <= 8 V): R2, L, plate, total power, V, Cu mass | 1474 mm, 3182 mm, 19.88 mm, 33.19 kW, 3.612 V, 186.8 t (seed spread in power 1.38 %) |
+| R61 | Head preset: minimum achievable supply voltage (other constraints kept) | 3.571 V (R2 at upper bound, d_plate at upper bound) |
+
+![head](figures/fig11_head.png)
 
 ## Validation (details in [VALIDATION.md](VALIDATION.md))
 

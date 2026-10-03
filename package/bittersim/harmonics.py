@@ -216,3 +216,70 @@ def head_preset(R2_grid=None, L_grid=None, cooling=None, copper_usd_per_kg=None,
     if usd_per_kWh is not None:
         out["running_cost_usd_per_h"] = (res["P_elec_W"] + res["P_pump_W"] + sh["shim_power_W"]) / 1e3 * usd_per_kWh
     return out
+
+
+# ---------------------------------------------------------------- head-bore optimisation
+HEAD_BOUNDS = [(0.30, 1.50),      # R2 [m]            ASSUMPTION: widened well beyond the 0.7 m grid
+               (1.00, 5.00),      # L [m]
+               (0.5e-3, 20e-3),   # plate thickness [m] (thick plates -> fewer turns -> lower voltage)
+               (1.0e-3, 8.0e-3),  # hole diameter [m]
+               (1.0, 5.0),        # water velocity [m/s]
+               (1.5, 8.0)]        # hole pitch / hole diameter
+HEAD_NAMES = ["R2", "L", "d_plate", "D_hole", "v_flow", "pitch_factor"]
+
+
+def _head_eval(x):
+    from .design import BitterDesign, evaluate_design
+    R2, L, dpl, Dh, v, pf = [float(t) for t in x]
+    d = BitterDesign(R1=HEAD["R1"], R2=R2, L=L, d_plate=dpl, D_hole=Dh, v_flow=v, pitch_factor=pf, dsv=HEAD["dsv"])
+    res = evaluate_design(d, homogeneity=False)
+    sh = shimmed_homogeneity(d.R1, d.R2, d.L, res["C_A_per_m"], HEAD["dsv"])
+    return res, sh
+
+
+def head_constraints(res, sh, v_max=8.0):
+    """g_i >= 0 when satisfied (normalised): shimmed ppm, hot spot, supply voltage, dp, Re."""
+    g = [(HEAD["ppm_target"] - sh["ppm_shimmed"]) / HEAD["ppm_target"],
+         (85.0 - res["T_hot_C"]) / 85.0,
+         (5e5 - res["dp_Pa"]) / 5e5,
+         (res["Re"] - 1e4) / 1e4]
+    if v_max is not None:
+        g.append((v_max - res["V_total_V"]) / v_max)
+    return np.array(g)
+
+
+def _head_obj(x, v_max, what):
+    res, sh = _head_eval(x)
+    viol = np.minimum(head_constraints(res, sh, v_max), 0.0)
+    base = (res["P_total_W"] + sh["shim_power_W"]) / 1e3 if what == "power" else res["V_total_V"]
+    return base + 1e4 * float(np.sum(viol ** 2)) + 1e2 * float(np.sum(-viol))
+
+
+def head_optimise(seed=1, v_max=8.0, what="power", maxiter=40, popsize=10, bounds=HEAD_BOUNDS):
+    """Differential evolution over (R2, L, plate, hole, velocity, pitch) at R1 = 0.19 m for the
+    200 mm DSV head preset. what='power' minimises electrical + pump + shim power subject to the
+    constraints (v_max=None drops the supply limit); what='voltage' minimises the supply voltage
+    subject to the other constraints (the minimum achievable voltage). Reports which bounds bind."""
+    from scipy.optimize import differential_evolution
+    de = differential_evolution(_head_obj, bounds, args=(v_max, what), seed=seed, maxiter=maxiter,
+                                popsize=popsize, tol=1e-7, polish=False)
+    res, sh = _head_eval(de.x)
+    g = head_constraints(res, sh, v_max)
+    names = ["ppm", "T_hot", "dp", "Re"] + (["V"] if v_max is not None else [])
+    at_bound = []
+    for nm, xv, (lo, hi) in zip(HEAD_NAMES, de.x, bounds):
+        f = (xv - lo) / (hi - lo)
+        if f < 0.01:
+            at_bound.append(nm + " at lower bound")
+        elif f > 0.99:
+            at_bound.append(nm + " at upper bound")
+    return {"seed": seed, "v_max": v_max, "objective": what, "x": dict(zip(HEAD_NAMES, [float(t) for t in de.x])),
+            "nfev": int(de.nfev), "fun": float(de.fun), "feasible": bool(np.all(g >= -1e-6)),
+            "constraints": dict(zip(names, [float(t) for t in g])),
+            "active_constraints": [n for n, v in zip(names, g) if abs(v) < 2e-3],
+            "at_bound": at_bound, "interior": not at_bound,
+            "P_elec_W": res["P_elec_W"], "P_pump_W": res["P_pump_W"], "shim_power_W": sh["shim_power_W"],
+            "P_total_W": res["P_total_W"] + sh["shim_power_W"], "V_total_V": res["V_total_V"], "I_A": res["I_A"],
+            "T_hot_C": res["T_hot_C"], "mass_cu_kg": res["mass_cu_kg"], "flow_L_min": res["flow_L_min"],
+            "dp_Pa": res["dp_Pa"], "Re": res["Re"], "n_turns": res["n_turns"],
+            "ppm_unshimmed": sh["ppm_unshimmed"], "ppm_shimmed": sh["ppm_shimmed"], "shim_NI_A": sh["shim_NI_A"]}
