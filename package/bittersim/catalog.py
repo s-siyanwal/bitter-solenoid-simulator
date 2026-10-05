@@ -290,7 +290,8 @@ def describe():
     lines.append("Environment:")
     for key in sorted(ENVIRONMENT):
         lines.append("  %s: %s" % (key, ENVIRONMENT[key]["note"]))
-    lines.append("Warnings that always apply: round graded holes are not a Florida-Bitter plate; "
-                 "contact resistance is sampled only in the emulation; Swiss-roll SNR is heuristic; "
-                 "this catalog is not a certified magnet design.")
+    lines.append("Warnings that always apply: default holes are uniform-density (not graded; "
+                 "use montgomery/vinokur); round holes are not a Florida-Bitter plate; "
+                 "contact R_c defaults to 0 in continuum (set R_c_ohm or use emulation scatter); "
+                 "Swiss-roll SNR is heuristic; this catalog is not a certified magnet design.")
     return "\n".join(lines)

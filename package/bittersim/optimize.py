@@ -16,9 +16,13 @@ Constraints:
   g4  R1 >= 0.05 m                  (PDF; lower bound)
   g5  homogeneity <= 100 ppm over a 30 mm DSV         (ASSUMPTION)
   g6  dp <= 5 bar                                     (ASSUMPTION)
-  g7  Re >= 1e4 (Dittus-Boelter validity)             (ASSUMPTION)
-Bounds follow the PDF code where given (R2 in [0.1, 0.3] m, L in [0.4, 1.5] m,
-v in [1, 5] m/s); others are ASSUMPTIONS.
+  g7  R2 <= 0.30 m
+Soft (not a hard cut — BIR p.4–5 practice):
+  Re floor: correlation-validity penalty below Re_min (default 5500).
+  The old hard Re >= 1e4 constraint is removed; Re_min is a LIMITS parameter.
+
+Pass friction_multiplier, R_c_ohm, hole_layout_mode, etc. via `fixed=`.
+Pass Re_min / Re_penalty_weight via `limits=`.
 
 Global search: scipy.optimize.differential_evolution (SciPy >= 0.15) with
 quadratic penalties, then SLSQP polish with explicit inequality constraints
@@ -27,6 +31,7 @@ quadratic penalties, then SLSQP polish with explicit inequality constraints
 import numpy as np
 from scipy.optimize import differential_evolution, minimize
 from .design import BitterDesign, evaluate_design
+from .constants import RE_MIN_CORRELATION
 
 BOUNDS = [(0.05, 0.10),     # R1 [m]
           (0.05, 0.25),     # R2 - R1 [m] (keeps R2 within the PDF's 0.1-0.3 m)
@@ -36,7 +41,8 @@ BOUNDS = [(0.05, 0.10),     # R1 [m]
           (1.0, 5.0),       # water velocity [m/s]
           (1.5, 8.0)]       # hole pitch / hole diameter
 
-LIMITS = dict(T_limit=85.0, V_max=8.0, ppm_max=100.0, dp_max=5e5, Re_min=1e4, R2_max=0.30)
+LIMITS = dict(T_limit=85.0, V_max=8.0, ppm_max=100.0, dp_max=5e5,
+              Re_min=RE_MIN_CORRELATION, Re_penalty_weight=50.0, R2_max=0.30)
 
 
 def x_to_design(x, **fixed):
@@ -45,43 +51,79 @@ def x_to_design(x, **fixed):
                         pitch_factor=pf, **fixed)
 
 
-def constraints(res, lim=LIMITS):
-    """All g_i >= 0 for feasibility (normalised)."""
+def constraints(res, lim=None):
+    """Hard inequality constraints g_i >= 0 for feasibility (normalised).
+
+    Re is intentionally absent: correlation validity is a soft penalty
+    (see correlation_penalty), matching BIR practice rather than a hard floor.
+    """
+    lim = lim or LIMITS
     return np.array([
         (lim["T_limit"] - res["T_hot_C"]) / lim["T_limit"],
         (lim["V_max"] - res["V_total_V"]) / lim["V_max"],
         (lim["ppm_max"] - res["homogeneity_ppm"]) / lim["ppm_max"],
         (lim["dp_max"] - res["dp_Pa"]) / lim["dp_max"],
-        (res["Re"] - lim["Re_min"]) / lim["Re_min"],
         (lim["R2_max"] - res["R2"]) / lim["R2_max"],
     ])
+
+
+def correlation_penalty(res, lim=None):
+    """Soft Re floor: quadratic penalty when Re < Re_min (BIR correlation FOS)."""
+    lim = lim or LIMITS
+    re_min = float(lim["Re_min"])
+    if re_min <= 0.0 or res["Re"] >= re_min:
+        return 0.0
+    w = float(lim.get("Re_penalty_weight", 50.0))
+    return w * ((re_min - res["Re"]) / re_min) ** 2
 
 
 def _eval(x, fixed):
     return evaluate_design(x_to_design(x, **fixed))
 
 
-def penalised(x, fixed=None):
+def penalised(x, fixed=None, lim=None):
+    lim = lim or LIMITS
     res = _eval(x, fixed or {})
-    g = constraints(res)
+    g = constraints(res, lim)
     viol = np.minimum(g, 0.0)
-    return res["P_total_W"] / 1e3 + 1e4 * float(np.sum(viol ** 2)) + 1e2 * float(np.sum(-viol))
+    return (res["P_total_W"] / 1e3
+            + 1e4 * float(np.sum(viol ** 2))
+            + 1e2 * float(np.sum(-viol))
+            + correlation_penalty(res, lim))
 
 
-def optimise(seed=1, maxiter=60, popsize=15, polish=True, fixed=None, verbose=False):
+def optimise(seed=1, maxiter=60, popsize=15, polish=True, fixed=None, verbose=False,
+             limits=None):
+    """Run DE (+ optional SLSQP polish).
+
+    fixed : dict passed to BitterDesign (e.g. R_c_ohm, friction_multiplier,
+            hole_layout_mode). Use R_c_ohm > 0 to carry a contact-resistance budget.
+    limits : override LIMITS entries (T_limit, V_max, Re_min, ...).
+    """
     fixed = fixed or {}
-    de = differential_evolution(penalised, BOUNDS, args=(fixed,), seed=seed, maxiter=maxiter,
-                                popsize=popsize, tol=1e-8, polish=False, disp=verbose)
+    lim = dict(LIMITS)
+    if limits:
+        lim.update(limits)
+    de = differential_evolution(
+        lambda x: penalised(x, fixed, lim), BOUNDS,
+        seed=seed, maxiter=maxiter, popsize=popsize, tol=1e-8, polish=False, disp=verbose)
     x_best = de.x
     method = "differential_evolution"
+    n_hard = 5
     if polish:
-        cons = [{"type": "ineq", "fun": (lambda x, i=i: constraints(_eval(x, fixed))[i])} for i in range(6)]
-        sl = minimize(lambda x: _eval(x, fixed)["P_total_W"] / 1e3, de.x, method="SLSQP",
-                      bounds=BOUNDS, constraints=cons, options={"maxiter": 200, "ftol": 1e-10})
-        if sl.success and np.all(constraints(_eval(sl.x, fixed)) >= -1e-9) and \
+        cons = [{"type": "ineq",
+                 "fun": (lambda x, i=i: constraints(_eval(x, fixed), lim)[i])}
+                for i in range(n_hard)]
+        sl = minimize(lambda x: _eval(x, fixed)["P_total_W"] / 1e3
+                      + correlation_penalty(_eval(x, fixed), lim),
+                      de.x, method="SLSQP", bounds=BOUNDS, constraints=cons,
+                      options={"maxiter": 200, "ftol": 1e-10})
+        if sl.success and np.all(constraints(_eval(sl.x, fixed), lim) >= -1e-9) and \
                 _eval(sl.x, fixed)["P_total_W"] < _eval(de.x, fixed)["P_total_W"]:
             x_best = sl.x
             method = "differential_evolution + SLSQP polish"
     res = _eval(x_best, fixed)
-    return {"x": x_best, "result": res, "constraints": constraints(res), "method": method,
+    return {"x": x_best, "result": res, "constraints": constraints(res, lim),
+            "correlation_penalty": correlation_penalty(res, lim),
+            "limits": lim, "method": method,
             "de_nfev": int(de.nfev), "de_fun": float(de.fun)}

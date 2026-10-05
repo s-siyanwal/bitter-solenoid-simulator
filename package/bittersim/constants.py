@@ -19,3 +19,25 @@ PR_WATER_20 = 7.0
 NU_KIN_WATER_20 = 1.004e-6
 RHO_WATER_20 = 998.2
 CP_WATER = 4184.0
+
+# --- Literature-audit P0 additions (AUDIT_REPORT §5) ---
+# Contact / joint resistance per plate interface. Default 0 keeps the published
+# continuum path bit-stable; HAO Table 2.4 measured ~65 µΩ on a small stack.
+R_C_OHM_DEFAULT = 0.0
+R_C_HAO_EXAMPLE_OHM = 65e-6
+
+# Stacked axial channels: MON p.49, 104 report friction 10–20× smooth-tube
+# values (f ≈ 0.1 "normal"). Apply the multiplier to Darcy f for Δp only;
+# keep the conventional (smooth) h / Nu (MON design rule).
+FRICTION_MULTIPLIER_SMOOTH = 1.0
+FRICTION_MULTIPLIER_STACK_MON = 15.0
+
+# Overlap sector shared with helical.py (ASSUMPTION unless overridden).
+OVERLAP_DEG_DEFAULT = 30.0
+
+# Supply voltage ceiling used only to report R_c headroom (PDF: 8 V).
+V_SUPPLY_MAX_DEFAULT = 8.0
+
+# Soft Re floor for correlation validity (BIR p.4–5 uses ~5500; Dittus–Boelter
+# claimed from 2300). Hard Re ≥ 1e4 floor removed from the optimiser.
+RE_MIN_CORRELATION = 5500.0

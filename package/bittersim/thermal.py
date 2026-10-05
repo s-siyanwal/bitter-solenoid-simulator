@@ -31,11 +31,16 @@ def nusselt_gnielinski(Re, Pr):
     return (f / 8.0) * (Re - 1000.0) * Pr / (1.0 + 12.7 * math.sqrt(f / 8.0) * (Pr ** (2.0 / 3.0) - 1.0))
 
 
-def channel_flow(v, D, length, T_bulk, correlation="dittus-boelter", K_minor=1.5, eta_pump=0.7, fluid=None):
+def channel_flow(v, D, length, T_bulk, correlation="dittus-boelter", K_minor=1.5, eta_pump=0.7,
+                fluid=None, friction_multiplier=1.0):
     """Single circular channel: Re, Pr, h, f, dp, per-channel mass flow.
 
     fluid=None keeps the water correlations. A callable fluid(T) is only used
     by catalog coolants. The published default path does not pass it.
+
+    friction_multiplier scales Darcy f for pressure drop only (MON stacked-channel
+    rule: 10–20× smooth friction, conventional h). Nu / h always use the smooth
+    correlation. Default multiplier 1.0 preserves the published continuum path.
     """
     w = water_props(T_bulk) if fluid is None else fluid(T_bulk)
     Re = w["rho"] * v * D / w["mu"]
@@ -47,11 +52,16 @@ def channel_flow(v, D, length, T_bulk, correlation="dittus-boelter", K_minor=1.5
         Nu_g = nusselt_gnielinski(Re, Pr)
         Nu = nusselt_dittus_boelter(Re, Pr) if correlation == "dittus-boelter" else Nu_g
     h = Nu * w["k"] / D
-    f = friction_factor(Re)
+    f_smooth = friction_factor(Re)
+    mult = float(friction_multiplier)
+    if mult <= 0.0:
+        raise ValueError("friction_multiplier must be > 0")
+    f = f_smooth * mult
     dp = (f * length / D + K_minor) * 0.5 * w["rho"] * v ** 2
     area = math.pi * D ** 2 / 4.0
     return {"Re": Re, "Pr": Pr, "Nu": Nu, "Nu_gnielinski": Nu_g, "h": h,
-            "h_gnielinski": Nu_g * w["k"] / D, "f": f, "dp": dp,
+            "h_gnielinski": Nu_g * w["k"] / D, "f": f, "f_smooth": f_smooth,
+            "friction_multiplier": mult, "dp": dp,
             "m_dot": w["rho"] * v * area, "Q": v * area, "cp": w["cp"], "rho": w["rho"],
             "eta_pump": eta_pump}
 
