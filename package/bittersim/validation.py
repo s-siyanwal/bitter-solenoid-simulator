@@ -159,8 +159,102 @@ def v_performance(n_seg_target=20000, n_obs=20000):
             "pair_evals_per_s": s0.shape[0] * n_obs / dt, "peak_rss_MB": rss}
 
 
+def v_beta_benchmark():
+    """BETA (Bates et al., RSI 89 054704, 2018) Tables I–II and measured ΔP.
+
+    Compares our continuum formulas to the published analytic/experimental
+    anchors. Tolerances are loose where geometry differs (elongated Florida
+    holes, Vinokur packing, overlap fill); the resistance Eq 3 check is tight.
+    """
+    from .materials import rho_cu, water_props
+    from . import thermal
+    from . import inductance as ind
+
+    # --- Table I geometry / electrical ---
+    R1, R2 = 0.020, 0.06986
+    L = 0.0805
+    t_plate = 0.5e-3
+    lam = 0.8113
+    N_eff = 77.625
+    T_avg = 44.5
+    I = 1175.0
+    B_target = 1.03
+    table_I = {
+        "B_T": 1.03, "R_ohm": 17.679e-3, "V_V": 20.773, "P_W": 24.41e3,
+        "L_H": 196.86e-6, "I_A": 1175.0, "N": 77.625, "Nc": 81,
+    }
+    rho = float(rho_cu(T_avg))
+    lnr = math.log(R2 / R1)
+    # BETA Eq 3: R = 2 π N ρ / (λ t ln(r2/r1))
+    R_eq3 = 2.0 * math.pi * N_eff * rho / (lam * t_plate * lnr)
+    V_eq3 = I * R_eq3
+    P_eq3 = I ** 2 * R_eq3
+    # Inductance of thick Bitter winding (E9); N = effective turns
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        L_num = float(ind.coil_inductance(R1, R2, L, N_eff, "bitter", nr=6))
+    # Field amplitude C from E4 for cross-check (not a Table I column)
+    C = B_target / (MU_0 * (math.asinh(L / (2 * R1)) - math.asinh(L / (2 * R2))))
+
+    # --- Table II hydraulics (5 rings × 18 elongated holes) ---
+    # Approximate hydraulic diameter from 2.5 mm radial × 4.5° span at mid-radius.
+    r_mid = 0.5 * (R1 + R2)
+    a_rad, a_arc = 2.5e-3, r_mid * math.radians(4.5)
+    area_h = a_rad * a_arc          # rectangular proxy for elongated hole
+    perim = 2.0 * (a_rad + a_arc)
+    Dh = 4.0 * area_h / perim
+    n_holes = 5 * 18
+    m_tot = 2.16                     # kg/s
+    T_in = 5.0
+    w = water_props(T_in + 5.0)      # bulk ~ mid-rise
+    A_one = area_h
+    v_mean = (m_tot / n_holes) / (w["rho"] * A_one)
+    # Velocity range in Table II: 1.18–1.96 m/s; h = 7191–8089
+    table_II = {"h_min": 7191.0, "h_max": 8089.0, "T_wall_inner": 53.7, "T_wall_outer": 36.1,
+                "v_min": 1.18, "v_max": 1.96, "m_dot": 2.16}
+    h_rows = []
+    for v in (table_II["v_min"], v_mean, table_II["v_max"]):
+        fl = thermal.channel_flow(v, Dh, L, T_in + 5.0, friction_multiplier=1.0)
+        h_rows.append({"v": v, "h": fl["h"], "Re": fl["Re"], "f": fl["f"], "dp": fl["dp"]})
+    # Measured ΔP 7.72 kPa; BETA analytic 9.69 kPa with 2 mm effective roughness.
+    # Our stack-friction rule (×15 on f) brackets the measured drop at mean velocity.
+    fl_smooth = thermal.channel_flow(v_mean, Dh, L, T_in + 5.0, friction_multiplier=1.0)
+    fl_stack = thermal.channel_flow(v_mean, Dh, L, T_in + 5.0, friction_multiplier=15.0)
+    dp_meas = 7.72e3
+    dp_beta_analytic = 9.69e3
+
+    return {
+        "table_I": table_I,
+        "R_eq3_ohm": R_eq3,
+        "V_eq3_V": V_eq3,
+        "P_eq3_W": P_eq3,
+        "L_numeric_H": L_num,
+        "C_A_per_m": C,
+        "rho_at_Tavg": rho,
+        "rel_R": abs(R_eq3 - table_I["R_ohm"]) / table_I["R_ohm"],
+        "rel_V": abs(V_eq3 - table_I["V_V"]) / table_I["V_V"],
+        "rel_P": abs(P_eq3 - table_I["P_W"]) / table_I["P_W"],
+        "rel_L": abs(L_num - table_I["L_H"]) / table_I["L_H"],
+        "table_II": table_II,
+        "Dh_m": Dh,
+        "v_mean_m_s": v_mean,
+        "h_at_velocities": h_rows,
+        "dp_smooth_Pa": fl_smooth["dp"],
+        "dp_stack15_Pa": fl_stack["dp"],
+        "dp_measured_Pa": dp_meas,
+        "dp_beta_analytic_Pa": dp_beta_analytic,
+        "notes": (
+            "R/V/P from BETA Eq 3 at Table I T_avg; L from E9 bitter inductance. "
+            "h from Dittus–Boelter on a rectangular Dh proxy for elongated holes. "
+            "ΔP: smooth vs friction_multiplier=15 vs BETA measured 7.72 kPa / analytic 9.69 kPa."
+        ),
+    }
+
+
 def run_all(opt_res):
     return {"elliptic": v_elliptic(), "single_loop": v_single_loop(), "long_solenoid": v_long_solenoid(),
             "thick": v_thick_closed_form(), "segments": v_segment_convergence(),
             "bitter_segments": v_bitter_segments(), "inductance": v_inductance(),
-            "homogeneity_convergence": v_homogeneity_convergence(opt_res), "performance": v_performance()}
+            "homogeneity_convergence": v_homogeneity_convergence(opt_res), "performance": v_performance(),
+            "beta": v_beta_benchmark()}

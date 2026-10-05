@@ -76,7 +76,7 @@ The continuum optimum is unchanged. Evaluations carry a `warnings` list instead 
 
 1. Uniform `ρ(T)` with no radial feedback into `J = C/r`. An optional correction is reported only, default off.
 2. Graded round holes are not a Florida-Bitter plate.
-3. Helical slit and contact resistance are omitted from the continuum resistance. The emulation samples contact.
+3. Helical slit geometry is omitted from the continuum resistance. Continuum contact resistance is optional (`R_c_ohm`, default 0). The emulation still samples log-normal contact scatter around that continuum value.
 4. The thin-ring hoop stress is an upper estimate and is far below yield at 0.5 T. The design is not stress-limited.
 5. No CHF map and no water chemistry. The pump-failure time is adiabatic and invalid at boiling.
 6. Swiss-roll SNR is a heuristic. The emulation does not claim an SNR measurement.

@@ -22,13 +22,16 @@ Equations are E1–E32 and results R1–R40. All R values come from `examples/ru
 - E10 Nagaoka sheet inductance: L = μ0πR²N²K_N/len, with K_N = 4/(3πk′)[(k′²/k²)(K−E) + E − k].
 
 ## 3. Electrical and thermal-hydraulic model
-- Fill factor λ = d/(d+d_ins)·(1−f_hole) **[A: d_ins = 0.25 mm; holes graded so the 1/r profile is preserved]**. Then NI = CL ln(R2/R1) and P = 2πρC²L ln(R2/R1)/λ.
+- Fill factor λ = d/(d+d_ins)·(1−f_hole) **[A: d_ins = 0.25 mm; default hole layout is uniform-density (not graded); `montgomery` / `vinokur` implement MON (a1/r)² and BETA Vinokur grading]**. Then NI = CL ln(R2/R1) and P = 2πρC²L ln(R2/R1)/λ.
 - Resistivity ρ(T) = 1.68e-8[1+0.00393(T−20)], iterated to self-consistency with the mean and hot-spot temperatures.
-- Hole rows have a uniform pitch (pitch/D is a design variable). All holes carry the same velocity.
+- Hole rows: default uniform pitch (pitch/D is a design variable); optional montgomery (spacing ∝ r, equal holes/ring) or vinokur (tanh pack toward bore). All holes carry the same velocity.
+- Stacked-channel friction: optional `friction_multiplier` on Darcy f for Δp only (MON: 10–20×); h stays on the smooth correlation. Default multiplier 1.0 preserves published numbers.
+- Contact resistance: optional per-interface R_c in continuum R, V, P plus overlap-sector heat; V headroom reported as max R_c/interface (≈7.6 µΩ at the published optimum).
+- Optimiser Re floor is a soft correlation-validity penalty (default Re_min = 5500, BIR); the hard Re ≥ 1e4 cut is removed.
 - E11 Re = ρvD/μ, Pr = c_pμ/k, h = Nu·k/D. Water properties are temperature-dependent **[A]**.
 - E12 Dittus–Boelter: Nu = 0.023Re^0.8Pr^0.4 (used).
 - E13 Gnielinski correlation (cross-check).
-- E14 Darcy friction: 64/Re laminar, Petukhov turbulent.
+- E14 Darcy friction: 64/Re laminar, Petukhov turbulent; optional stack multiplier on f for Δp.
 - E15 Δp = (fL/D + 1.5)ρv²/2; pump power = ΔpQ/0.7 **[A]**.
 - E16 Water heating: ṁc_p dT_f/dz = q′.
 - E17 Wall temperature: T_s = T_f + q″/h, with q″ taken over the copper part of the hole wall.

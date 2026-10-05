@@ -85,7 +85,9 @@ The owner authorized making this repository public so GitHub Pages can serve `do
 | Field, off-axis | winding as Gauss–Legendre coaxial loops with exact K(m), E(m) loop fields (Numba, prange); the blueprint's straight-segment Biot–Savart engine is used as an independent check |
 | Bitter electrics | Laplace → J = V0/(2πρr), I_plate = V0 d ln(R2/R1)/(2πρ), P = V0² L ln(R2/R1)/(2πρ); fill factor for insulation and holes; current fixed so Bz(0) = 0.5 T |
 | Thermal | ρ(T) iteration; axial holes, Dittus–Boelter (blueprint) plus Gnielinski check; ṁc_p dT/dz = q′; Newton cooling; in-plate conduction to the hole; hot spot at R1 / outlet; lumped transient (normal operation and pump failure) |
-| Hydraulics | Re, Petukhov/laminar friction, Δp with minor losses, pump power |
+| Hydraulics | Re, Petukhov/laminar friction × optional stack multiplier (MON 10–20× on f only), Δp with minor losses, pump power |
+| Contact R_c | Optional per-interface resistance in continuum R/V/P + overlap heat; headroom report |
+| Hole grading | uniform (default) / montgomery / vinokur; per-ring hot spot |
 | Mechanics | J×B, thin-ring hoop stress, axial compressive force |
 | Swiss roll | μ_eff = 1 − Fω²/(ω²−ω0²+jωΓ) with Pendry's geometric ω0 and Γ, skin-effect sheet resistance, heuristic SNR gain. **RF only:** μ_eff(0) = 1, so it has no effect on static B0 or its homogeneity in this model |
 | Optimisation | differential_evolution then SLSQP; minimise P_elec + P_pump subject to 0.5 T, T_hot ≤ 85 °C, V ≤ 8 V, R1 ≥ 50 mm, ≤ 100 ppm, Δp ≤ 5 bar, Re ≥ 1e4 |
@@ -144,7 +146,8 @@ How to read these numbers:
 - **Should differ (different physics):**
   - ρ(T). The Bloch–Grüneisen slope at 20 °C differs from the linear α = 0.00393 1/K. The power and hot-spot temperature differ accordingly. Between 21 and 26 °C the model gap is small ({{P_RHO_MODEL}} at the mean Cu temperature), smaller than the 1e6-carrier sampling error ({{P_RHO_SE}}). It grows to {{P_RHO_85}} at the 85 °C trip limit.
   - The emulated hot spot still takes the water rise and film drop from the continuum correlations, rescaled by the carrier ρ. Only conduction and resistivity come from particles.
-- **Neither model includes:** contact and joint resistance, the helical current path, or turbulence. Classical carriers reproduce Drude σ under the relaxation-time approximation. Quantum (Fermi–Dirac) statistics change v_F and the mean free path, not σ.
+- **Continuum contact resistance:** optional per-interface `R_c_ohm` (default 0) enters R, V, P and overlap-sector heat; V headroom is reported as max R_c/interface. Emulation still samples log-normal contacts.
+- **Neither model includes:** a full Florida-Bitter elongated/staggered plate, or a turbulence-resolving CFD channel model. Classical carriers reproduce Drude σ under the relaxation-time approximation. Quantum (Fermi–Dirac) statistics change v_F and the mean free path, not σ.
 
 ![particles](figures/fig8_particles.png)
 ![particle convergence](figures/fig9_particle_convergence.png)
@@ -225,7 +228,7 @@ How to read it:
 
 - **Geometry:**
   - Insulator thickness is 0.25 mm.
-  - Cooling holes are circular, axial and run the full stack length L. They sit on uniform-pitch rows, are graded so the 1/r current profile is undisturbed, and the hole area reduces the copper cross-section uniformly.
+  - Cooling holes are axial and run the full stack length L. Default layout is **uniform-density** round holes (equal pitch, n_per_row ∝ r) — this is *not* graded. Optional `hole_layout_mode=montgomery|vinokur` implements MON (a1/r)² or BETA Vinokur grading; `elongated_aspect>1` makes area-preserving elliptical holes. Hole area reduces the copper cross-section via f_h.
   - The helical lead and slit are neglected in the axisymmetric field (the segment engine quantifies their effect: about 5e-4 T of transverse field at the centre of the test coil, see VALIDATION §5).
 - **Field quality:** homogeneity limit 100 ppm peak-to-peak over a 30 mm DSV, with no shimming.
 - **Materials:**

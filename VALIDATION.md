@@ -112,6 +112,44 @@ Sum of per-cell Joule heat over all hole rows vs analytic P (E31): relative resi
 
 ![mechanics](figures/fig5_mechanics.png)
 
+
+## 10. BETA experimental benchmark (Bates et al., RSI 2018)
+
+Anchor: Bates, Birmingham & Romero-Talamás, *Rev. Sci. Instrum.* **89**, 054704 (2018) — Tables I–II and measured ΔP on p.8. Produced by `bittersim.validation.v_beta_benchmark()`.
+
+### Table I — electrical (BETA Eq 3 at T_avg = 44.5 °C)
+
+Geometry: r1 = 20 mm, r2 = 69.86 mm, ℓ = 80.5 mm, t = 0.5 mm, λ = 0.8113, N = 77.625, I = 1175 A.
+
+| quantity | Table I | continuum (this repo) | rel. difference |
+|---|---|---|---|
+| R | 17.679 mΩ | 17.705 mΩ | 1.5e-3 |
+| V | 20.773 V | 20.803 V | 1.4e-3 |
+| P | 24.41 kW | 24.44 kW | 1.4e-3 |
+| L | 196.86 µH | 197.43 µH (E9 bitter) | 2.9e-3 |
+
+### Table II — heat transfer
+
+Elongated-hole Dh proxy ≈ 2.93 mm (2.5 mm radial × 4.5° span). Dittus–Boelter h at the published velocity band:
+
+| v [m/s] | h (this repo) [W/m²K] | Table II band |
+|---|---|---|
+| 1.18 | ~6170 | 7191–8089 |
+| 1.96 | ~9260 | 7191–8089 |
+
+Wall temperatures in Table II (53.7 → 36.1 °C analytic) require the paper's multi-ring thermal-resistance network; the continuum hot-spot model here is a single-channel film+conduction estimate and is not re-solved for the BETA geometry in this check.
+
+### Pressure drop
+
+| source | ΔP |
+|---|---|
+| BETA measured | 7.72 kPa |
+| BETA analytic (2 mm effective roughness) | 9.69 kPa |
+| this repo, smooth Petukhov at mean-flow proxy | ~9.25 kPa |
+| this repo, friction_multiplier=15 (MON stack rule) | much higher (rule is for smooth-tube baseline on large MRI stacks) |
+
+The smooth-pipe ΔP at the proxy velocity lands close to BETA's analytic 9.69 kPa. The MON 10–20× multiplier is the continuum default recommendation for *smooth-tube* baselines on stacked MRI-scale channels; BETA already folds roughness into its analytic model.
+
 ## Not validated
 
 * FEniCS curl-curl cross-validation (PDF): FEniCS 2018.1 is not pip-installable on current Colab/Kaggle or this environment; replaced by the independent closed-form and segment/loop cross-checks above.
