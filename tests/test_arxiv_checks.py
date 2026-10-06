@@ -151,3 +151,71 @@ def test_epfl_coil_inductance_against_radia():
     L = inductance.coil_inductance(EPFL["R1"], EPFL["R2"], EPFL["H"], EPFL["N"],
                                    profile="uniform", nr=16)
     assert L == pytest.approx(94e-6, rel=0.05)  # solver: 91.6 uH
+
+
+# ---------------------- JQI Bitter Ioffe-Pritchard (measured, arXiv:2008.11181)
+import json
+
+with open(os.path.join(DATA, "jqi_bitter_ip_design.json"), encoding="utf-8") as _fh:
+    JQI = json.load(_fh)
+
+
+def _jqi_layers(kind):
+    g, c = JQI, JQI[kind]
+    t1, t2 = c["turns"]
+    pitch = g["zthcop"] + c["zsep"]
+    if kind == "curv":
+        top = max(t1, t2) * pitch
+        z0 = (g["zoff"] + top - t1 * pitch + g["cbdiff"], g["zoff"] + top - t2 * pitch + g["cbdiff"])
+    else:
+        z0 = (g["zoff"], g["zoff"])
+    mids = (c["rmid_inner"], c["rmid_inner"] + g["rth"] + g["rspac"])
+    out = []
+    for rmid, n, zo in zip(mids, (t1, t2), z0):
+        R1, R2 = (rmid - g["rth"] / 2) * 1e-3, (rmid + g["rth"] / 2) * 1e-3
+        out.append((R1, R2, (zo + g["zthbrass"] / 2) * 1e-3, g["zthbrass"] * 1e-3))
+        for k in range(n - 1):
+            zc = zo + g["zthbrass"] + c["zsep"] + g["zthcop"] / 2 + k * pitch
+            out.append((R1, R2, zc * 1e-3, g["zthcop"] * 1e-3))
+    return out
+
+
+def _jqi_axis(kind, z, bottom=+1):
+    z = np.atleast_1d(np.asarray(z, dtype=float))
+    B = np.zeros_like(z)
+    for R1, R2, zc, t in _jqi_layers(kind):
+        C = 1.0 / (t * math.log(R2 / R1))          # 1 A per layer, Bitter J = C/r
+        B += fields.B_bitter_axis(R1, R2, t, C, z - zc)
+        B += bottom * fields.B_bitter_axis(R1, R2, t, C, z + zc)
+    return B
+
+
+def _jqi_coeffs():
+    h = 1e-4
+    c0 = _jqi_axis("curv", 0.0)[0]
+    c2 = (_jqi_axis("curv", h)[0] - 2 * c0 + _jqi_axis("curv", -h)[0]) / h ** 2
+    b0 = _jqi_axis("bias", 0.0)[0]
+    b1 = (_jqi_axis("bias", h, -1)[0] - _jqi_axis("bias", -h, -1)[0]) / (2 * h)
+    # T/A -> uT/A, T/m^2/A -> uT/cm^2/A, T/m/A -> uT/cm/A
+    return c0 * 1e6, c2 * 1e2, b0 * 1e6, b1 * 1e4
+
+
+def test_jqi_field_shape_matches_measurement():
+    # Ratios cancel the overall amplitude, so they test radii and axial placement.
+    m = JQI["measured_150A"]
+    c0, c2, b0, b1 = _jqi_coeffs()
+    meas_curv = m["curv_B2_uT_per_cm2_A"] / m["curv_B0_uT_per_A"]
+    meas_bias = m["bias_Bp_antihelmholtz_uT_per_cm_A"] / m["bias_B0_helmholtz_uT_per_A"]
+    assert c2 / c0 == pytest.approx(meas_curv, rel=0.01)       # solver 0.3146 vs 0.3148 /cm^2
+    assert abs(b1 / b0) == pytest.approx(abs(meas_bias), rel=0.05)   # solver +2.8 %
+
+
+def test_jqi_field_amplitude_known_gap():
+    # Design-notebook layer table puts the solver 9-12 % above the Hall data on every
+    # coefficient (flagged > 5 %). Not tuned: the as-built layer count is not published.
+    m = JQI["measured_150A"]
+    c0, c2, b0, b1 = _jqi_coeffs()
+    pairs = [(abs(m["curv_B0_uT_per_A"]), c0), (abs(m["curv_B2_uT_per_cm2_A"]), c2),
+             (m["bias_B0_helmholtz_uT_per_A"], b0), (abs(m["bias_Bp_antihelmholtz_uT_per_cm_A"]), b1)]
+    rel = [(meas - sol) / sol for meas, sol in pairs]
+    assert all(-0.15 < r < -0.05 for r in rel)

@@ -1,0 +1,16 @@
+{
+  "_source": "JQIamo/Bitter-Ioffe-Pritchard (zenodo 10.5281/zenodo.3999624, CERN-OHL-1.2), Design/Cloverleaf_Trap_Reversed_v9.nb, cell 'Geometry definitions' and the radObjRaceTrk coil definitions. Lengths in mm. This is the authors' design model; the paper (arXiv:2008.11181) quotes the same mid-radii 22.2/36.2 mm and 61.7/75.7 mm and the 3.81 cm minimum spacing (2*zoff). As-built layer counts are not stated in the paper.",
+  "rth": 12.7, "rspac": 1.27, "zthcop": 1.0, "zthbrass": 5.207, "zsep": 0.254, "zoff": 19.05, "cbdiff": 0.4826,
+  "curv": {"rmid_inner": 22.225, "turns": [6, 5], "zsep": 0.254},
+  "bias": {"rmid_inner": 61.722, "turns": [6, 6], "zsep": 0.508},
+  "_turns_note": "turns include the brass end piece ('including brass spacer below'): one brass ring of thickness zthbrass nearest the centre, then turns-1 copper layers of zthcop at pitch zthcop+zsep",
+  "measured_150A": {
+    "_source": "arXiv:2008.11181v2 p.3, three-axis Hall probe (Lakeshore 360), pair at 3.81 cm minimum spacing",
+    "curv_B0_uT_per_A": -156.94, "curv_B2_uT_per_cm2_A": -49.4,
+    "bias_B0_helmholtz_uT_per_A": 160.46, "bias_Bp_antihelmholtz_uT_per_cm_A": -24.2,
+    "R_mOhm": {"curv": 9.2, "bias": 13.0, "clover": 32.0},
+    "L_uH": {"curv": 5.0, "bias": 21.0, "clover": 68.0},
+    "authors_R_estimate_mOhm": {"curv": 5.0, "bias": 13.6, "clover": 48.0},
+    "authors_radia_L_uH": {"curv": 5.3, "bias": 23.7}
+  }
+}

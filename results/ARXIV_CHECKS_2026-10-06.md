@@ -39,4 +39,19 @@ A flat spiral (31 turns, 1.3 mm radial pitch, 32–72 mm, 22 mm tall), so the cu
 ## Searched, not usable yet
 - NHMFL 41.5 T all-resistive magnet: about 41.4 T at 48 kA (field factor ≈ 0.86 T/kA), first tested 21 Aug 2017. The coil geometry is only in Toth & Bole, IEEE TASC 28(3) 2018, doi:10.1109/TASC.2017.2775578 (paywalled). Blocked on dimensions.
 - arXiv:2308.15476 is a magnetometer paper, not a magnet dataset.
-- JQI Bitter Ioffe-Pritchard (arXiv:2008.11181, RSI 92, 033201): Hall maps at 150 A, plus R and L. The design repo is already in `experiment data/Bitter-Ioffe-Pritchard-master.zip`. Next candidate.
+- JQI Bitter Ioffe-Pritchard (arXiv:2008.11181, RSI 92, 033201): Hall maps at 150 A, plus R and L. Done: see the JQI section below.
+
+## JQI Bitter Ioffe-Pritchard (added 2026-10-07)
+Geometry from the authors' design notebook (`Cloverleaf_Trap_Reversed_v9.nb`): each stack is a 5.207 mm brass ring followed by 1 mm Cu layers; widths 12.7 mm; mid-radii 22.225/36.195 mm (curvature) and 61.722/75.692 mm (anti-bias); first layer at 19.05 mm from the centre. Bitter J = C/r, 1 A per layer.
+
+| channel (pair, per A) | measured | bare solver | rel. residual |
+|---|---|---|---|
+| curvature B0 | 156.94(1) uT/A | 171.82 | −8.7 % |
+| curvature B'' | 49.4(4) uT/(cm² A) | 54.05 | −8.6 % |
+| anti-bias B0 (Helmholtz) | 160.46(4) uT/A | 176.87 | −9.3 % |
+| anti-bias B' (anti-Helmholtz) | 24.2(1) uT/(cm A) | 27.42 | −11.7 % |
+| curvature B''/B0 | 0.3148 /cm² | 0.3146 | −0.1 % |
+| R curvature (Cu + brass, ρ_brass 6.6e-8 assumed) | 9.2(6) mΩ | 4.90 | +88 % |
+| R anti-bias | 13.0(9) mΩ | 13.11 | −0.8 % |
+
+Reading: the shape closes, which means the radii and axial placement are right, but the amplitude is uniformly about 9–12 % high. The geometric R reproduces the authors' own estimates (5.0 and 13.6 mΩ), so this is the layer table the authors used. The paper nonetheless claims Radia agrees with the measurement to better than 3 %, and the uniform-J (Radia-like) version of this table also comes out 10.7 % high on curvature B0. The as-built layer count or current calibration is therefore the open question. Nothing was tuned. The small curvature coil repeats the cross-campaign pattern of under-predicted R (leads, CuCr rods at 80 % IACS, notch contacts).
