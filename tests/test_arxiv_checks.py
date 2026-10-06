@@ -240,3 +240,11 @@ def test_jqi_single_coil_inductance_against_radia_and_measurement():
         L = stack.stack_inductance(_jqi_layers(kind), nr=12, nz=2) * 1e6
         assert 1.05 < L / m["authors_radia_L_uH"][kind] < 1.20
         assert 1.10 < L / m["L_uH"][kind] < 1.35
+
+
+def test_jqi_ac_redistribution_is_small_at_100hz():
+    # The 100 Hz triangle-wave L cannot be explained by eddy/proximity currents here.
+    for kind in ("curv", "bias"):
+        one = _jqi_layers(kind)
+        L100 = stack.stack_impedance(one, [100.0], nr=12, nz=2)[0].imag / (2 * math.pi * 100.0)
+        assert L100 / stack.stack_inductance(one, 12, 2) > 0.98

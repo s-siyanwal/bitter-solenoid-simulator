@@ -14,6 +14,10 @@ This module keeps each layer and each extra term visible:
   L (DC)         sum_ij w_i w_j M(r_i, r_j, z_i - z_j) over nr x nz filaments per layer
                  (E8); self terms use a ring of rectangular cross-section,
                  mu0 r (ln(8 r / g) - 2), g = 0.2235 (dr + dz)
+  Z(omega)       PEEC: filaments of one layer in parallel, layers in series.
+                 (R_f + j omega M) i = P V,  P^T i = 1 A per layer,
+                 Z = sum_k V_k. DC limit -> J = C/r inside each plate; at AC the
+                 current redistributes (eddy/proximity), so L_app(f) falls.
 
 Joint and lead terms default to 0 and are never fitted here. A caller adds
 them only with a measured or separately bounded value.
@@ -103,20 +107,47 @@ def _filaments(layers, nr, nz):
     return np.concatenate(r), np.concatenate(z), np.concatenate(w)
 
 
+def _filament_matrices(layers, nr, nz):
+    r, z, w = _filaments(layers, nr, nz)
+    g, rf, owner = [], [], []
+    for k, ly in enumerate(layers):
+        dr, dz = (ly.r_out - ly.r_in) / nr, ly.t / nz
+        g.extend([0.2235 * (dr + dz)] * (nr * nz))
+        rf.extend([ly.rho * 2 * math.pi / (dr * dz)] * (nr * nz))   # times r below
+        owner.extend([k] * (nr * nz))
+    g = np.asarray(g)
+    a, b = np.meshgrid(r, r, indexing="ij")
+    M = mutual_loops(a, b, z[:, None] - z[None, :])
+    np.fill_diagonal(M, MU_0 * r * (np.log(8.0 * r / g) - 2.0))
+    return r, w, M, np.asarray(rf) * r, np.asarray(owner)
+
+
+def stack_impedance(layers, freqs, nr=8, nz=2):
+    """Complex impedance [ohm] of the layers in series at each frequency [Hz].
+
+    Each layer is nr x nz parallel filaments sharing one voltage; every layer carries
+    the full series current, with its sign. Full turns only. Returns an array of Z.
+    """
+    r, w, M, Rf, owner = _filament_matrices(layers, nr, nz)
+    n_lay = len(layers)
+    P = np.zeros((r.size, n_lay))
+    P[np.arange(r.size), owner] = 1.0
+    sgn = np.array([ly.sign for ly in layers], dtype=float)
+    out = []
+    for f in np.atleast_1d(np.asarray(freqs, dtype=float)):
+        Z = np.diag(Rf).astype(complex) + 1j * 2 * math.pi * f * M
+        ZiP = np.linalg.solve(Z, P)                  # filament currents per unit layer voltage
+        Y = P.T @ ZiP                                # layer current = Y V
+        V = np.linalg.solve(Y, sgn)                  # each layer carries +-1 A
+        out.append(complex(np.dot(sgn, V)))          # series voltage seen at the terminals
+    return np.asarray(out)
+
+
 def stack_inductance(layers, nr=8, nz=2):
     """DC (magnetostatic) self-inductance [H] of the layers in series, 1 A per layer.
 
     Filament model, full turns only; each layer is split nr x nz. Refine nr/nz
     to check convergence (tests compare against E9 coil_inductance).
     """
-    r, z, w = _filaments(layers, nr, nz)
-    # per-filament cross-section for the self term
-    g = []
-    for ly in layers:
-        g.extend([0.2235 * ((ly.r_out - ly.r_in) / nr + ly.t / nz)] * (nr * nz))
-    g = np.asarray(g)
-    a, b = np.meshgrid(r, r, indexing="ij")
-    u = z[:, None] - z[None, :]
-    M = mutual_loops(a, b, u)
-    np.fill_diagonal(M, MU_0 * r * (np.log(8.0 * r / g) - 2.0))
+    _, w, M, _, _ = _filament_matrices(layers, nr, nz)
     return float(w @ M @ w)

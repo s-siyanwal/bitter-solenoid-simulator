@@ -90,3 +90,32 @@ def test_stack_inductance_matches_e9_for_bitter_plates_and_converges():
 def test_stack_inductance_rejects_half_layers():
     with pytest.raises(ValueError):
         stack.stack_inductance([stack.Layer(R1, R2, 0.0, T, math.pi)])
+
+
+def _plate_stack(N=30, pitch=1.3e-3):
+    return [stack.Layer(R1, R2, (k - (N - 1) / 2) * pitch, T) for k in range(N)]
+
+
+def test_impedance_dc_limit_matches_resistance_and_inductance():
+    lay = _plate_stack()
+    Z = stack.stack_impedance(lay, [1e-3], nr=12, nz=2)[0]
+    assert Z.real == pytest.approx(stack.stack_resistance(lay)["R_layers"], rel=2e-3)
+    assert Z.imag / (2 * math.pi * 1e-3) == pytest.approx(stack.stack_inductance(lay, 12, 2), rel=1e-6)
+
+
+def test_impedance_ac_redistribution_lowers_L_and_raises_R():
+    # Wide plates: radial width (30 mm) ~ skin depth at 100 Hz-1 kHz, so current crowds inward.
+    lay = _plate_stack()
+    Z = stack.stack_impedance(lay, [1.0, 100.0, 1000.0], nr=12, nz=2)
+    L = Z.imag / (2 * math.pi * np.array([1.0, 100.0, 1000.0]))
+    assert L[0] > L[1] > L[2]
+    assert Z.real[0] < Z.real[1] < Z.real[2]
+    assert L[2] / L[0] < 0.8
+
+
+def test_impedance_respects_current_sign_for_anti_pairs():
+    top = _plate_stack(N=6)
+    top = [ly._replace(z=ly.z + 0.02) for ly in top]
+    anti = stack.mirrored(top, sign=-1.0)
+    Z = stack.stack_impedance(anti, [1e-3], nr=6, nz=1)[0]
+    assert Z.imag / (2 * math.pi * 1e-3) == pytest.approx(stack.stack_inductance(anti, 6, 1), rel=1e-6)

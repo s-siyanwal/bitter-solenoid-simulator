@@ -84,10 +84,17 @@ Consequences:
 Reading:
 - The paper's L values match one coil of the pair, but its R estimates match the pair. That is an ambiguity in the paper itself.
 - The L excess (11–14 % over Radia) and the field excess (9–12 % over Hall) point the same way. A notebook layer table about 5–6 % richer in turns than the as-built coils would explain both, since L scales as N².
-- AC is not the cause at 100 Hz: the skin depth (6.5 mm in Cu, about 13 mm in brass) exceeds the 1 mm layers.
+- AC is not the cause at 100 Hz, but for a different reason than first written. The relevant length is the plate's radial width, not its 1 mm thickness. The PEEC model below gives L(100 Hz)/L_DC > 0.98 for both JQI coils.
 
 **AC vs DC status.** For Olsen, the apparent L falls from 25.9 µH at 0.1 Hz to 19.1 µH at 10 kHz. However:
 - At 0.1 Hz, ωL is about 1.6e-5 Ω against R = 26.5 mΩ, so the low-frequency L is not resolved and can't anchor a DC comparison.
 - At 1 kHz or more, the Cu skin depth (≤ 2.1 mm) is comparable to the plate thickness, so the 19.1 µH is an AC value.
 
 A frequency-dependent plate-eddy model is needed before Olsen or Claw-ZS L becomes a target. Until then, L stays out of any corrector.
+
+## AC impedance of explicit stacks (2026-10-07)
+`stack.stack_impedance(layers, freqs)` is a PEEC model. Each layer is split into nr × nz filaments connected in parallel (one voltage per layer), the layers are in series with each carrying ±1 A, and the system (R_f + jωM) i = P V is solved for Z(f).
+- **DC limit:** R matches the 1/r plate law (0.06 % at nr = 12) and L matches `stack_inductance` exactly.
+- **AC:** current crowds toward the bore once the skin depth is comparable to the radial width, not the thickness. On a 30-plate stack (20–50 mm, 1 mm plates), L falls 15 % by 100 Hz and 28 % by 1 kHz, while R rises ×4 by 1 kHz.
+- **JQI:** the coils are short, so the effect is below 2 % at 100 Hz and the L gap above is not AC.
+- **Olsen and Claw-ZS:** these are long stacks measured over 0.1 Hz–10 kHz, and the effect should be large. Next step: build the Olsen layer table from `Radiasim_20230220.nb` (358° arcs, so near full turns) and compare L_app(f). The comparison is score-only; Olsen stays held out.
