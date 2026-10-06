@@ -16,7 +16,7 @@ from bittersim import helical as Hx
 QUICK = "--quick" in sys.argv
 NR, NR_COARSE = (12, 6) if QUICK else (96, 48)
 t0 = time.time()
-o = json.load(open(os.path.join(ROOT, "results", "results.json")))["optimal"]
+o = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))["optimal"]
 g = (o["R1"], o["R2"], o["L"], o["C_A_per_m"])
 nt = int(round(o["n_turns"]))
 out = {"assumptions": {"n_turns": nt, "overlap_deg": Hx.OVERLAP_DEG, "bus_radius_m": o["R2"] + Hx.BUS_GAP,
@@ -50,7 +50,7 @@ for dsv in (0.03, 0.04):
         out["dsv"][key][kind] = a
         print(key, kind, [round(v, 2) for _, v in a["ladder_ppm"]], a["needed_shims"], a["ladder_orders_needed"], flush=True)
 out["seconds"] = time.time() - t0
-json.dump(out, open(os.path.join(ROOT, "results", "helical.json"), "w"), indent=1, default=float)
+json.dump(out, open(os.path.join(ROOT, "results", "helical.json"), "w", encoding="utf-8"), indent=1, default=float)
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots(1, 2, figsize=(14, 4.6))

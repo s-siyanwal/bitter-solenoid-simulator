@@ -64,7 +64,7 @@ def plot_convergence(out):
 
 def main():
     import numba
-    D = json.load(open(os.path.join(ROOT, "results", "results.json")))
+    D = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))
     o = D["optimal"]
     R1, R2, L, C = o["R1"], o["R2"], o["L"], o["C_A_per_m"]
     design = BitterDesign(**dict((k, o[k]) for k in ("R1", "R2", "L", "d_plate", "d_ins", "D_hole", "v_flow",
@@ -204,7 +204,7 @@ def main():
                          "rho_hot_stderr_rel": rho_hot_se, "E18_at_continuum_qv": dT_E18,
                          "dT_cond_R21": o["dT_cond_inner_K"], "theta_R": Pt.THETA_R, "RRR": Pt.RRR}
     path = os.path.join(ROOT, "results", "particles.json")
-    json.dump(out, open(path, "w"), indent=1, sort_keys=True)
+    json.dump(out, open(path, "w", encoding="utf-8"), indent=1, sort_keys=True)
 
     # ---------------- figures ----------------
     import matplotlib
@@ -236,6 +236,6 @@ def main():
 
 if __name__ == "__main__":
     if "--replot" in sys.argv:
-        plot_convergence(json.load(open(os.path.join(ROOT, "results", "particles.json"))))
+        plot_convergence(json.load(open(os.path.join(ROOT, "results", "particles.json"), encoding="utf-8")))
     else:
         main()

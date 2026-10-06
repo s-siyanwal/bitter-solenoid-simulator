@@ -16,7 +16,7 @@ def test_optimiser_returns_feasible_design():
 
 
 def test_published_optimum_is_feasible_and_reproducible():
-    R = json.load(open(os.path.join(ROOT, "results", "results.json")))
+    R = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))
     x = R["optimiser"]["x"]
     res = evaluate_design(x_to_design(x))
     g = constraints(res)

@@ -59,7 +59,7 @@ def test_walkers_match_E18():
 
 
 def test_particles_json_is_consistent():
-    d = json.load(open(os.path.join(ROOT, "results", "particles.json")))
+    d = json.load(open(os.path.join(ROOT, "results", "particles.json"), encoding="utf-8"))
     assert not d["quick"]
     for k, v in d["benchmark"].items():
         assert v["bit_identical"], k

@@ -18,7 +18,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def test_published_path_bit_stable_with_p0_defaults():
-    R = json.load(open(os.path.join(ROOT, "results", "results.json")))
+    R = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))
     res = evaluate_design(x_to_design(R["optimiser"]["x"]), homogeneity=False)
     assert res["P_elec_W"] == pytest.approx(R["optimal"]["P_elec_W"], rel=1e-12)
     assert res["dp_Pa"] == pytest.approx(R["optimal"]["dp_Pa"], rel=1e-12)
@@ -42,14 +42,14 @@ def test_contact_resistance_in_R_V_P_and_headroom():
     assert r["dT_contact_K"] > 0.0
     assert r["T_hot_C"] > base["T_hot_C"]
     # Optimum headroom ~7.6 µΩ/interface (AUDIT M1)
-    pub = json.load(open(os.path.join(ROOT, "results", "results.json")))
+    pub = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))
     opt = evaluate_design(x_to_design(pub["optimiser"]["x"]), homogeneity=False)
     assert opt["R_c_max_per_interface_ohm"] == pytest.approx(7.6e-6, rel=0.05)
 
 
 def test_hao_scale_contact_blows_voltage_budget():
     """HAO ~65 µΩ/interface is far above the 8 V headroom of the published optimum."""
-    pub = json.load(open(os.path.join(ROOT, "results", "results.json")))
+    pub = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))
     r = evaluate_design(x_to_design(pub["optimiser"]["x"], R_c_ohm=R_C_HAO_EXAMPLE_OHM),
                         homogeneity=False)
     assert r["V_total_V"] > 8.0

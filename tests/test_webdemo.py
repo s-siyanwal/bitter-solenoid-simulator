@@ -85,14 +85,14 @@ def test_js_presets_match_printed_precision():
 
 
 def test_landing_page_links_demo_and_explains_basics():
-    html = open(os.path.join(DOCS, "index.html")).read()
+    html = open(os.path.join(DOCS, "index.html"), encoding="utf-8").read()
     for needle in ('href="demo.html"', "1/r", "slit", "cooling holes", "Lorentz force"):
         assert needle in html, needle
     assert "bittersim.js" not in html          # the landing page stays static and light
 
 
 def test_demo_page_labels():
-    html = open(os.path.join(DOCS, "demo.html")).read()
+    html = open(os.path.join(DOCS, "demo.html"), encoding="utf-8").read()
     assert "Advanced (work in progress)" in html and '<details class="adv" id="advanced">' in html
     for needle in (
         "Mesoscopic emulation, not molecular dynamics",

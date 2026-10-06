@@ -1,8 +1,8 @@
 """Generate README.md and DESIGN_SUMMARY.md from results/*.json (no hand-typed numbers)."""
 import json, os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-D = json.load(open(os.path.join(ROOT, "results", "results.json")))
-V = json.load(open(os.path.join(ROOT, "results", "validation.json")))
+D = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))
+V = json.load(open(os.path.join(ROOT, "results", "validation.json"), encoding="utf-8"))
 o, b, x, env = D["optimal"], D["baseline_pdf_initial_guess"], D["extra"], D["env"]
 sr = x["swissroll"]
 envs = ", ".join("%s %s" % (k, env[k]) for k in ("python", "numpy", "scipy", "numba", "matplotlib"))
@@ -52,7 +52,7 @@ VR = [
  ("R39", "Long-solenoid limit L/R = 1000 vs mu0 n I", "%.2e relative" % V["long_solenoid"][2]["rel_vs_ideal"]),
  ("R40", "Numerical sheet inductance vs Nagaoka (worst of 3)", "%.1e relative" % max(r["rel"] for r in V["inductance"]["sheet"])),
 ]
-F = json.load(open(os.path.join(ROOT, "results", "fmri.json")))
+F = json.load(open(os.path.join(ROOT, "results", "fmri.json"), encoding="utf-8"))
 s3, s4, hp, st, rq, rf = F["shim_30mm"], F["shim_40mm"], F["head_preset"], F["stability"], F["stability_requirements"], F["rf"]
 cb, vb = st["current"]["budget_ppm"], st["voltage"]["budget_ppm"]
 tol = F["tolerance_30mm"]["tesseral_ppm"]
@@ -70,7 +70,7 @@ FR = [
  ("R51", "RF resistances with slab: coil / tissue / slab", "%.4f / %.4f / %.4f ohm" % (rf["slab"]["R_coil"], rf["slab"]["R_tissue"], rf["slab"]["R_slab"])),
 ]
 
-PJ = json.load(open(os.path.join(ROOT, "results", "particles.json")))
+PJ = json.load(open(os.path.join(ROOT, "results", "particles.json"), encoding="utf-8"))
 _pc = dict((r["key"], r) for r in PJ["comparison"])
 _pb = PJ["benchmark"]
 PR = [
@@ -103,8 +103,8 @@ def btable():
              ("tolerance_mc_processes", "emulate() tolerance MC, 8 processes")]
     return h + "\n".join("| %s | %d | %.3f | %.3f | %.2fx | %s |" % (lab, _pb[k]["n"], _pb[k]["serial_s"], _pb[k]["parallel_s"], _pb[k]["speedup"], "yes" if _pb[k]["bit_identical"] else "NO") for k, lab in names)
 
-HX = json.load(open(os.path.join(ROOT, "results", "helical.json")))
-HD = json.load(open(os.path.join(ROOT, "results", "head.json")))
+HX = json.load(open(os.path.join(ROOT, "results", "helical.json"), encoding="utf-8"))
+HD = json.load(open(os.path.join(ROOT, "results", "head.json"), encoding="utf-8"))
 _h30, _h40 = HX["dsv"]["30mm"], HX["dsv"]["40mm"]
 
 
@@ -191,20 +191,20 @@ rmap = dict((r[0], r[2]) for r in R + VR + FR + PR + HR)
 def rtable(rows):
     return "| ID | quantity | value |\n|---|---|---|\n" + "\n".join("| %s | %s | %s |" % r for r in rows)
 
-summary = open(os.path.join(ROOT, "examples", "summary_template.md")).read()
+summary = open(os.path.join(ROOT, "examples", "summary_template.md"), encoding="utf-8").read()
 summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR + FR + PR + HR)).replace("{{ENV}}", envs)
 import sys
 CHECK = "--check" in sys.argv
 def _emit(name, text):
     path = os.path.join(ROOT, name)
     if CHECK:
-        if open(path).read() != text:
+        if open(path, encoding="utf-8").read() != text:
             raise SystemExit("%s is stale: run examples/make_docs.py" % name)
     else:
-        open(path, "w").write(text)
+        open(path, "w", encoding="utf-8").write(text)
 _emit("DESIGN_SUMMARY.md", summary)
 
-readme = open(os.path.join(ROOT, "examples", "readme_template.md")).read()
+readme = open(os.path.join(ROOT, "examples", "readme_template.md"), encoding="utf-8").read()
 readme = readme.replace("{{RESULTS_TABLE}}", rtable(R)).replace("{{FMRI_TABLE}}", rtable(FR)).replace("{{VALIDATION_TABLE}}", rtable(VR)).replace("{{ENV}}", envs)
 _pp = PJ["production"]
 readme = readme.replace("{{PARTICLES_ROWS}}", rtable(PR)).replace("{{PARTICLES_TABLE}}", ptable()).replace("{{PARTICLES_BENCH}}", btable())

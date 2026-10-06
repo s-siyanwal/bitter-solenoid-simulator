@@ -12,7 +12,7 @@ def test_update_report_check():
 
 
 def test_tex_has_theory_and_pseudocode():
-    tex = open(os.path.join(ROOT, "report", "bitter_solenoid_report.tex")).read()
+    tex = open(os.path.join(ROOT, "report", "bitter_solenoid_report.tex"), encoding="utf-8").read()
     for needle in ("procedure EMULATE", "procedure OPTIMISE", "asinh", "mesoscopic emulation"):
         assert needle in tex, needle
 

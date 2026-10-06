@@ -27,7 +27,7 @@ def _load(name):
     path = os.path.join(RES, name)
     if not os.path.isfile(path):
         return None
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -131,7 +131,7 @@ def write_numbers():
             lines.append(" PDF-guess adiabatic time to saturation in that file: %s s." % pf.get("time_to_tsat_s"))
     text = "\n".join(lines) + "\n"
     path = os.path.join(REPORT, "generated_numbers.tex")
-    with open(path, "w") as fh:
+    with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
     return path
 
@@ -142,10 +142,10 @@ def append_changelog(message):
         "\\paragraph{%s.}\n%s\n\n" % (stamp, _tex_escape(message))
     )
     path = os.path.join(REPORT, "changelog.tex")
-    with open(path, "a") as fh:
+    with open(path, "a", encoding="utf-8") as fh:
         fh.write(block)
     md = os.path.join(ROOT, "PROJECT_REPORT.md")
-    with open(md, "a") as fh:
+    with open(md, "a", encoding="utf-8") as fh:
         fh.write("\n### %s\n\n%s\n" % (stamp, message))
     return path
 
@@ -163,10 +163,10 @@ def sync_docs():
 
 
 def check():
-    num = open(os.path.join(REPORT, "generated_numbers.tex")).read()
-    log = open(os.path.join(REPORT, "changelog.tex")).read()
-    tex = open(os.path.join(REPORT, "bitter_solenoid_report.tex")).read()
-    md = open(os.path.join(ROOT, "PROJECT_REPORT.md")).read()
+    num = open(os.path.join(REPORT, "generated_numbers.tex"), encoding="utf-8").read()
+    log = open(os.path.join(REPORT, "changelog.tex"), encoding="utf-8").read()
+    tex = open(os.path.join(REPORT, "bitter_solenoid_report.tex"), encoding="utf-8").read()
+    md = open(os.path.join(ROOT, "PROJECT_REPORT.md"), encoding="utf-8").read()
     required = ["17.974", "19.537", "21.153", "11.704", "4.543", "25.946", "99.95", "4922"]
     for token in required:
         if token not in num and token not in md:

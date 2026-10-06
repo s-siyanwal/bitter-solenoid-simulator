@@ -18,7 +18,7 @@ for label, v_max, what in (("power_8V", 8.0, "power"), ("power_noV", None, "powe
     out["runs"][label] = [H.head_optimise(seed=s, v_max=v_max, what=what, **kw) for s in (1, 2, 3)]
     print(label, [(r["seed"], round(r["P_total_W"]), round(r["V_total_V"], 3), r["at_bound"]) for r in out["runs"][label]], flush=True)
 out["seconds"] = time.time() - t0
-json.dump(out, open(os.path.join(ROOT, "results", "head.json"), "w"), indent=1, default=float)
+json.dump(out, open(os.path.join(ROOT, "results", "head.json"), "w", encoding="utf-8"), indent=1, default=float)
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots(1, 2, figsize=(12, 4.3))

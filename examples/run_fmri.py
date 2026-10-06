@@ -14,7 +14,7 @@ import numpy as np
 from bittersim import harmonics as H, stability as S, rfsnr as Q
 
 t0 = time.time()
-D = json.load(open(os.path.join(ROOT, "results", "results.json")))
+D = json.load(open(os.path.join(ROOT, "results", "results.json"), encoding="utf-8"))
 o, x = D["optimal"], D["extra"]
 geo = (o["R1"], o["R2"], o["L"], o["C_A_per_m"])
 
@@ -52,7 +52,7 @@ out = {
            "contact": cmp_["contact"], "gain_vs_air_by_loss_multiplier": cmp_lm},
     "seconds": time.time() - t0,
 }
-json.dump(out, open(os.path.join(ROOT, "results", "fmri.json"), "w"), indent=1, default=float)
+json.dump(out, open(os.path.join(ROOT, "results", "fmri.json"), "w", encoding="utf-8"), indent=1, default=float)
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots(1, 3, figsize=(15, 4))

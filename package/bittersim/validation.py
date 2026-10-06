@@ -3,7 +3,10 @@ and Test Methods").  Every function returns plain numbers so that the
 results tables in VALIDATION.md are generated, not typed."""
 import math
 import time
-import resource
+try:
+    import resource  # POSIX only; absent on Windows
+except ImportError:
+    resource = None
 import numpy as np
 from .constants import MU_0
 from . import fields, biot_savart as bs, inductance as ind
@@ -154,7 +157,8 @@ def v_performance(n_seg_target=20000, n_obs=20000):
     t = time.time()
     bs.biot_savart(obs, s0, s1, c, chunk=5000)
     dt = time.time() - t
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+    rss = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+           if resource is not None else float("nan"))
     return {"n_segments": int(s0.shape[0]), "n_obs": n_obs, "seconds": dt,
             "pair_evals_per_s": s0.shape[0] * n_obs / dt, "peak_rss_MB": rss}
 

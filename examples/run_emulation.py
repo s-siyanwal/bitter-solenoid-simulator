@@ -22,7 +22,7 @@ def main():
     if not os.path.isdir(figures):
         os.makedirs(figures)
     path = os.path.join(results, "emulation_compare.json")
-    with open(path, "w") as fh:
+    with open(path, "w", encoding="utf-8") as fh:
         json.dump(out, fh, indent=1, default=float)
     import matplotlib
     matplotlib.use("Agg")

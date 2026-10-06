@@ -40,7 +40,7 @@ def test_ideal_coil_has_no_tesseral_terms():
 
 
 def test_helical_json_consistency():
-    d = json.load(open(os.path.join(ROOT, "results", "helical.json")))
+    d = json.load(open(os.path.join(ROOT, "results", "helical.json"), encoding="utf-8"))
     assert not d["quick"]
     for key in ("30mm", "40mm"):
         ideal = d["dsv"][key]["ideal"]
@@ -53,7 +53,7 @@ def test_helical_json_consistency():
 
 
 def test_head_json_consistency():
-    d = json.load(open(os.path.join(ROOT, "results", "head.json")))
+    d = json.load(open(os.path.join(ROOT, "results", "head.json"), encoding="utf-8"))
     assert not d["quick"]
     for r in d["runs"]["power_8V"]:
         assert r["feasible"] and r["V_total_V"] <= 8.0 + 1e-9 and r["ppm_shimmed"] <= 10.0 + 1e-6
