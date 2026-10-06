@@ -67,3 +67,26 @@ def test_implied_extra_resistance_is_diagnostic_only():
     assert d["per_joint"] == pytest.approx(5e-5)
     assert d["specific_contact_ohm_m2"] == pytest.approx(5e-9)
     assert stack.stack_resistance(layers)["R_layers"] == pytest.approx(Rl)   # model unchanged
+
+
+def test_stack_inductance_matches_e9_for_flat_spiral():
+    from bittersim import inductance
+    R1, R2, H, N = 0.032, 0.072, 0.022, 31
+    rk = R1 + (np.arange(N) + 0.5) * (R2 - R1) / N
+    lay = [stack.Layer(r - 0.46e-3, r + 0.46e-3, 0.0, H, profile="uniform") for r in rk]
+    L = stack.stack_inductance(lay, nr=1, nz=8)
+    assert L == pytest.approx(inductance.coil_inductance(R1, R2, H, N, profile="uniform", nr=24), rel=5e-3)
+
+
+def test_stack_inductance_matches_e9_for_bitter_plates_and_converges():
+    from bittersim import inductance
+    R1b, R2b, t, p, N = 0.05, 0.15, 2e-3, 2.5e-3, 40
+    lay = [stack.Layer(R1b, R2b, (k - (N - 1) / 2) * p, t) for k in range(N)]
+    coarse, fine = stack.stack_inductance(lay, 6, 1), stack.stack_inductance(lay, 24, 2)
+    assert fine == pytest.approx(inductance.coil_inductance(R1b, R2b, N * p, N, "bitter", nr=16), rel=5e-3)
+    assert abs(coarse - fine) / fine < 0.02
+
+
+def test_stack_inductance_rejects_half_layers():
+    with pytest.raises(ValueError):
+        stack.stack_inductance([stack.Layer(R1, R2, 0.0, T, math.pi)])

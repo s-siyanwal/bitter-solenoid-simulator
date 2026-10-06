@@ -11,6 +11,9 @@ This module keeps each layer and each extra term visible:
   R per layer    J = C/r : R = rho phi / (t ln(R2/R1))
                  uniform : R = rho phi r_mid / (t (R2-R1))
   R_total        sum(R_layer) + n_joints r_joint + R_leads
+  L (DC)         sum_ij w_i w_j M(r_i, r_j, z_i - z_j) over nr x nz filaments per layer
+                 (E8); self terms use a ring of rectangular cross-section,
+                 mu0 r (ln(8 r / g) - 2), g = 0.2235 (dr + dz)
 
 Joint and lead terms default to 0 and are never fitted here. A caller adds
 them only with a measured or separately bounded value.
@@ -21,7 +24,8 @@ from collections import namedtuple
 import numpy as np
 
 from . import fields
-from .constants import RHO_CU_20
+from .inductance import mutual_loops
+from .constants import MU_0, RHO_CU_20
 
 Layer = namedtuple("Layer", "r_in r_out z t phi rho profile sign")
 Layer.__new__.__defaults__ = (2 * math.pi, RHO_CU_20, "bitter", 1.0)
@@ -83,3 +87,36 @@ def implied_extra_resistance(R_measured, layers, n_joints, contact_area=None):
     if contact_area and n_joints:
         out["specific_contact_ohm_m2"] = out["per_joint"] * float(contact_area)
     return out
+
+
+def _filaments(layers, nr, nz):
+    r, z, w = [], [], []
+    for ly in layers:
+        if abs(ly.phi - 2 * math.pi) > 1e-12:
+            raise ValueError("DC inductance needs full turns (phi = 2 pi); half-layers are not axisymmetric")
+        dr, dz = (ly.r_out - ly.r_in) / nr, ly.t / nz
+        rc = ly.r_in + (np.arange(nr) + 0.5) * dr
+        J = 1.0 / rc if ly.profile == "bitter" else np.ones(nr)
+        wr = J * dr / np.sum(J * dr)                    # radial share of the layer current
+        for zc in ly.z - ly.t / 2 + (np.arange(nz) + 0.5) * dz:
+            r.append(rc); z.append(np.full(nr, zc)); w.append(ly.sign * wr / nz)
+    return np.concatenate(r), np.concatenate(z), np.concatenate(w)
+
+
+def stack_inductance(layers, nr=8, nz=2):
+    """DC (magnetostatic) self-inductance [H] of the layers in series, 1 A per layer.
+
+    Filament model, full turns only; each layer is split nr x nz. Refine nr/nz
+    to check convergence (tests compare against E9 coil_inductance).
+    """
+    r, z, w = _filaments(layers, nr, nz)
+    # per-filament cross-section for the self term
+    g = []
+    for ly in layers:
+        g.extend([0.2235 * ((ly.r_out - ly.r_in) / nr + ly.t / nz)] * (nr * nz))
+    g = np.asarray(g)
+    a, b = np.meshgrid(r, r, indexing="ij")
+    u = z[:, None] - z[None, :]
+    M = mutual_loops(a, b, u)
+    np.fill_diagonal(M, MU_0 * r * (np.log(8.0 * r / g) - 2.0))
+    return float(w @ M @ w)

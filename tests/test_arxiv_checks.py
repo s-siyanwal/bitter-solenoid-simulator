@@ -228,3 +228,15 @@ def test_jqi_resistance_reproduces_authors_estimate_and_anti_bias_measurement():
     # anti-bias closes against the measurement; curvature is ~half the measured 9.2(6) mOhm
     assert R["bias"] == pytest.approx(m["R_mOhm"]["bias"], rel=0.05)
     assert R["curv"] < 0.6 * m["R_mOhm"]["curv"]
+
+
+def test_jqi_single_coil_inductance_against_radia_and_measurement():
+    # The paper's L values (5.0/21 uH measured, 5.3/23.7 uH Radia) match ONE coil of the
+    # pair; its R estimates match the PAIR. With the design-notebook layer table the
+    # solver sits 11-14 % above Radia and 18-29 % above the 100 Hz measurement, the same
+    # direction as the 9-12 % field excess (as-built turn count unknown). Not tuned.
+    m = JQI["measured_150A"]
+    for kind in ("curv", "bias"):
+        L = stack.stack_inductance(_jqi_layers(kind), nr=12, nz=2) * 1e6
+        assert 1.05 < L / m["authors_radia_L_uH"][kind] < 1.20
+        assert 1.10 < L / m["L_uH"][kind] < 1.35

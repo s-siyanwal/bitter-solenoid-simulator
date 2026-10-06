@@ -72,3 +72,22 @@ Consequences:
 - A measured R on a small coil (below about 10 mΩ) is not a clean model target until the voltage-tap positions are known.
 - No corrector on R.
 - Field remains the channel that transfers across campaigns.
+
+## DC inductance of explicit stacks (2026-10-07)
+`stack.stack_inductance` uses filaments (E8 mutuals) with a rectangular-ring self term, for full turns only. It reproduces E9 `coil_inductance` to within 0.5 % on the EPFL spiral (91.31 vs 91.43 µH) and on a 40-plate Bitter stack (0.1689 vs 0.1693 mH).
+
+| coil | solver (DC) | authors' Radia | measured | note |
+|---|---|---|---|---|
+| JQI curvature, one coil | 5.88 µH | 5.3 µH (+11 %) | 5.0(4) µH, 100 Hz triangle (+18 %) | pair in series: 12.81 µH |
+| JQI anti-bias, one coil | 27.03 µH | 23.7 µH (+14 %) | 21(1) µH (+29 %) | pair in series: 67.13 µH |
+
+Reading:
+- The paper's L values match one coil of the pair, but its R estimates match the pair. That is an ambiguity in the paper itself.
+- The L excess (11–14 % over Radia) and the field excess (9–12 % over Hall) point the same way. A notebook layer table about 5–6 % richer in turns than the as-built coils would explain both, since L scales as N².
+- AC is not the cause at 100 Hz: the skin depth (6.5 mm in Cu, about 13 mm in brass) exceeds the 1 mm layers.
+
+**AC vs DC status.** For Olsen, the apparent L falls from 25.9 µH at 0.1 Hz to 19.1 µH at 10 kHz. However:
+- At 0.1 Hz, ωL is about 1.6e-5 Ω against R = 26.5 mΩ, so the low-frequency L is not resolved and can't anchor a DC comparison.
+- At 1 kHz or more, the Cu skin depth (≤ 2.1 mm) is comparable to the plate thickness, so the 19.1 µH is an AC value.
+
+A frequency-dependent plate-eddy model is needed before Olsen or Claw-ZS L becomes a target. Until then, L stays out of any corrector.
