@@ -14,7 +14,7 @@ import os
 import numpy as np
 import pytest
 
-from bittersim import fields, inductance, mechanics
+from bittersim import fields, inductance, mechanics, stack
 from bittersim.constants import MU_0
 from bittersim.elliptic import field_from_loops
 
@@ -90,13 +90,13 @@ def _claw_layers():
     return t, z_bottom + t / 2.0, z_bottom[-1] + t[-1]
 
 
-def _claw_axis(z):
+def _claw_stack():
     t, zc, _ = _claw_layers()
-    B = np.zeros_like(z)
-    for ti, zi in zip(t, zc):
-        C = I_CLAW / (ti * math.log(R_OUT / R_IN))
-        B += 0.5 * fields.B_bitter_axis(R_IN, R_OUT, ti, C, z - zi)   # 180 deg half-layer
-    return B
+    return [stack.Layer(R_IN, R_OUT, zi, ti, math.pi) for ti, zi in zip(t, zc)]   # 180 deg half-layers
+
+
+def _claw_axis(z):
+    return stack.axis_field(_claw_stack(), z, current=I_CLAW)
 
 
 def _claw_measured():
@@ -160,6 +160,9 @@ with open(os.path.join(DATA, "jqi_bitter_ip_design.json"), encoding="utf-8") as 
     JQI = json.load(_fh)
 
 
+RHO_BRASS_ASSUMED = 6.6e-8   # free-cutting brass handbook value; alloy not stated by the authors
+
+
 def _jqi_layers(kind):
     g, c = JQI, JQI[kind]
     t1, t2 = c["turns"]
@@ -173,21 +176,16 @@ def _jqi_layers(kind):
     out = []
     for rmid, n, zo in zip(mids, (t1, t2), z0):
         R1, R2 = (rmid - g["rth"] / 2) * 1e-3, (rmid + g["rth"] / 2) * 1e-3
-        out.append((R1, R2, (zo + g["zthbrass"] / 2) * 1e-3, g["zthbrass"] * 1e-3))
+        out.append(stack.Layer(R1, R2, (zo + g["zthbrass"] / 2) * 1e-3, g["zthbrass"] * 1e-3,
+                               rho=RHO_BRASS_ASSUMED))
         for k in range(n - 1):
             zc = zo + g["zthbrass"] + c["zsep"] + g["zthcop"] / 2 + k * pitch
-            out.append((R1, R2, zc * 1e-3, g["zthcop"] * 1e-3))
+            out.append(stack.Layer(R1, R2, zc * 1e-3, g["zthcop"] * 1e-3))
     return out
 
 
 def _jqi_axis(kind, z, bottom=+1):
-    z = np.atleast_1d(np.asarray(z, dtype=float))
-    B = np.zeros_like(z)
-    for R1, R2, zc, t in _jqi_layers(kind):
-        C = 1.0 / (t * math.log(R2 / R1))          # 1 A per layer, Bitter J = C/r
-        B += fields.B_bitter_axis(R1, R2, t, C, z - zc)
-        B += bottom * fields.B_bitter_axis(R1, R2, t, C, z + zc)
-    return B
+    return stack.axis_field(stack.mirrored(_jqi_layers(kind), sign=bottom), z)
 
 
 def _jqi_coeffs():
@@ -219,3 +217,14 @@ def test_jqi_field_amplitude_known_gap():
              (m["bias_B0_helmholtz_uT_per_A"], b0), (abs(m["bias_Bp_antihelmholtz_uT_per_cm_A"]), b1)]
     rel = [(meas - sol) / sol for meas, sol in pairs]
     assert all(-0.15 < r < -0.05 for r in rel)
+
+
+def test_jqi_resistance_reproduces_authors_estimate_and_anti_bias_measurement():
+    m = JQI["measured_150A"]
+    R = {k: stack.stack_resistance(stack.mirrored(_jqi_layers(k)))["R_layers"] * 1e3 for k in ("curv", "bias")}
+    # same layer table as the authors' own estimate (5.0 and 13.6 mOhm)
+    assert R["curv"] == pytest.approx(m["authors_R_estimate_mOhm"]["curv"], rel=0.05)
+    assert R["bias"] == pytest.approx(m["authors_R_estimate_mOhm"]["bias"], rel=0.05)
+    # anti-bias closes against the measurement; curvature is ~half the measured 9.2(6) mOhm
+    assert R["bias"] == pytest.approx(m["R_mOhm"]["bias"], rel=0.05)
+    assert R["curv"] < 0.6 * m["R_mOhm"]["curv"]

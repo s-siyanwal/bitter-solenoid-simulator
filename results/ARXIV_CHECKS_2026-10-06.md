@@ -55,3 +55,20 @@ Geometry from the authors' design notebook (`Cloverleaf_Trap_Reversed_v9.nb`): e
 | R anti-bias | 13.0(9) mΩ | 13.11 | −0.8 % |
 
 Reading: the shape closes, which means the radii and axial placement are right, but the amplitude is uniformly about 9–12 % high. The geometric R reproduces the authors' own estimates (5.0 and 13.6 mΩ), so this is the layer table the authors used. The paper nonetheless claims Radia agrees with the measurement to better than 3 %, and the uniform-J (Radia-like) version of this table also comes out 10.7 % high on curvature B0. The as-built layer count or current calibration is therefore the open question. Nothing was tuned. The small curvature coil repeats the cross-campaign pattern of under-predicted R (leads, CuCr rods at 80 % IACS, notch contacts).
+
+## Joint/lead resistance: does one term generalize? (2026-10-07)
+New module `bittersim/stack.py` handles explicit layer tables. It computes E4/E3 per layer, uses the arc fraction φ/2π, mirrors pairs, and gives R per layer, with joint and lead terms that default to 0 and are never fitted. `examples/joint_diagnostic.py` (→ `results/joint_diagnostic.json`) divides each measured-R gap by the number of current-carrying interfaces:
+
+| campaign | R measured | R layers | gap | interfaces | implied per interface |
+|---|---|---|---|---|---|
+| EPFL spiral | 10.4(10) mΩ | 8.41 mΩ | 1.99 mΩ | 0 (monolithic) | n/a |
+| Claw-ZS | 5.3(2) mΩ | 3.66 mΩ | 1.64 mΩ | 210 | 7.8 ± 1.0 µΩ |
+| JQI curvature | 9.2(6) mΩ | 4.90 mΩ | 4.30 mΩ | 20 | 215 ± 30 µΩ |
+| JQI anti-bias | 13.0(9) mΩ | 13.11 mΩ | −0.11 mΩ | 22 | −5 ± 41 µΩ |
+
+**Verdict: no single joint term generalizes.** The two JQI coils share their construction, yet they disagree by about 4σ. Claw-ZS sits 30× below the JQI curvature value, and EPFL has a 2 mΩ gap with no joints at all. The extra resistance is coil- and setup-specific (lead length, terminal blocks, where the voltage taps sit). It is not a material constant, so the solver keeps R_joint = R_leads = 0 by default.
+
+Consequences:
+- A measured R on a small coil (below about 10 mΩ) is not a clean model target until the voltage-tap positions are known.
+- No corrector on R.
+- Field remains the channel that transfers across campaigns.

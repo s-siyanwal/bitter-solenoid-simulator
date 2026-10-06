@@ -1,0 +1,42 @@
+[
+ {
+  "campaign": "EPFL spiral",
+  "R_measured_ohm": 0.0104,
+  "sigma_ohm": 0.001,
+  "R_layers_ohm": 0.008407050949353456,
+  "R_gap_ohm": 0.0019929490506465433,
+  "n_joints": 0,
+  "per_joint_ohm": NaN,
+  "note": "monolithic; gap = leads/terminals/path"
+ },
+ {
+  "campaign": "Claw-ZS",
+  "R_measured_ohm": 0.00529555588176949,
+  "sigma_ohm": 0.0002,
+  "R_layers_ohm": 0.0036564551168406243,
+  "R_gap_ohm": 0.001639100764928866,
+  "n_joints": 210,
+  "per_joint_ohm": 7.805241737756505e-06,
+  "note": "spacer bulk 4.4 uOhm removed"
+ },
+ {
+  "campaign": "JQI curv",
+  "R_measured_ohm": 0.0092,
+  "sigma_ohm": 0.0006,
+  "R_layers_ohm": 0.004897903606484691,
+  "R_gap_ohm": 0.004302096393515309,
+  "n_joints": 20,
+  "per_joint_ohm": 0.00021510481967576545,
+  "note": "brass rho 6.6e-8 assumed"
+ },
+ {
+  "campaign": "JQI bias",
+  "R_measured_ohm": 0.013,
+  "sigma_ohm": 0.0009,
+  "R_layers_ohm": 0.013106844008843654,
+  "R_gap_ohm": -0.00010684400884365501,
+  "n_joints": 22,
+  "per_joint_ohm": -4.856545856529773e-06,
+  "note": "brass rho 6.6e-8 assumed"
+ }
+]
