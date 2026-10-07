@@ -1,0 +1,114 @@
+{
+ "measured_peak_3kW_mT": 136.9,
+ "ladder": [
+  {
+   "case": "air core, t=1.0, N=113",
+   "getdp_peak_mT": 50.78557681021376,
+   "t_cu_mm": 1.0,
+   "N": 113,
+   "shell": "far_legacy",
+   "mu_r": 1.0,
+   "half_length_mm": 58.652649999999994,
+   "elmer_peak_mT": 50.7866900181,
+   "earlier_inhouse_fem_mT": 50.84,
+   "rel_meas_vs_elmer": 1.6955881541248277,
+   "rel_meas_vs_inhouse": 1.692761605035405,
+   "mesh": [
+    "35697",
+    "72024"
+   ],
+   "seconds": 7.262262344360352
+  },
+  {
+   "case": "steel mu_r=200, far shell",
+   "getdp_peak_mT": 63.818229772344594,
+   "t_cu_mm": 1.0,
+   "N": 113,
+   "shell": "far_legacy",
+   "mu_r": 200.0,
+   "half_length_mm": 58.652649999999994,
+   "elmer_peak_mT": 63.8226856286,
+   "earlier_inhouse_fem_mT": 85.52,
+   "rel_meas_vs_elmer": 1.1450053167090928,
+   "rel_meas_vs_inhouse": 0.6007951356407857,
+   "mesh": [
+    "50532",
+    "102098"
+   ],
+   "seconds": 11.655549764633179
+  },
+  {
+   "case": "steel mu_r=2000, far shell",
+   "getdp_peak_mT": 66.1767719160321,
+   "t_cu_mm": 1.0,
+   "N": 113,
+   "shell": "far_legacy",
+   "mu_r": 2000.0,
+   "half_length_mm": 58.652649999999994,
+   "elmer_peak_mT": 66.1817120244,
+   "earlier_inhouse_fem_mT": 93.64999999999999,
+   "rel_meas_vs_elmer": 1.0685472740494752,
+   "rel_meas_vs_inhouse": 0.46182594767752266,
+   "mesh": [
+    "50532",
+    "102098"
+   ],
+   "seconds": 8.996415615081787
+  },
+  {
+   "case": "steel mu_r=2000, as-built shell",
+   "getdp_peak_mT": 65.90737038154073,
+   "t_cu_mm": 1.0,
+   "N": 113,
+   "shell": "close_pdf_1026",
+   "mu_r": 2000.0,
+   "half_length_mm": 58.652649999999994,
+   "elmer_peak_mT": 65.9121665583,
+   "earlier_inhouse_fem_mT": 100.1,
+   "rel_meas_vs_elmer": 1.0770065247196892,
+   "rel_meas_vs_inhouse": 0.3676323676323677,
+   "mesh": [
+    "50583",
+    "102202"
+   ],
+   "seconds": 9.340909004211426
+  },
+  {
+   "case": "thin disks t=0.20, N=140, as-built shell",
+   "getdp_peak_mT": 95.01659261695941,
+   "t_cu_mm": 0.2,
+   "N": 140,
+   "shell": "close_pdf_1026",
+   "mu_r": 2000.0,
+   "half_length_mm": 16.667,
+   "elmer_peak_mT": 95.0259694378,
+   "earlier_inhouse_fem_mT": 132.39999999999998,
+   "rel_meas_vs_elmer": 0.4406588094805911,
+   "rel_meas_vs_inhouse": 0.03398791540785502,
+   "mesh": [
+    "50349",
+    "101398"
+   ],
+   "seconds": 9.398718118667603
+  },
+  {
+   "case": "thin disks t=0.20, N=150, far shell",
+   "getdp_peak_mT": 100.8949283014567,
+   "t_cu_mm": 0.2,
+   "N": 150,
+   "shell": "far_legacy",
+   "mu_r": 2000.0,
+   "half_length_mm": 17.8575,
+   "elmer_peak_mT": 100.90309668100001,
+   "earlier_inhouse_fem_mT": 137.2,
+   "rel_meas_vs_elmer": 0.35674726052067923,
+   "rel_meas_vs_inhouse": -0.0021865889212827603,
+   "mesh": [
+    "50266",
+    "101230"
+   ],
+   "seconds": 9.026315689086914
+  }
+ ],
+ "bittersim_air_core_E4_mT": 50.835458125205626
+}
