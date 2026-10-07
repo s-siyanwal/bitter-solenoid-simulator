@@ -52,3 +52,10 @@ None of these has a **measured** field. All give design values only, so they can
 - NHMFL cell 6 page and user-committee reports: 41.5 T, 32 mm bore. No coil tables.
 - Science Museum record (RRE Malvern / IRD Bitter solenoid): 23 T in a 3 cm bore at 8 MW. Historical.
 - 1972 Magnet Technology conference papers (user-supplied, `extra_papers/`). Mulhall (IRD), "Bitter magnets for 20 T" (p360): design scaling only (Fabry G, current-density factor K); "just over 18 T at 4.75 MW" in a 28 mm bore; no coil table. Parkinson, Harris, Stearn, RRE Malvern (p450): Table I lists measured field and power for 8 Bitter solenoids (e.g. 155 kG in 33 mm at 3.81 MW) but not their radii or lengths, so blocked. The 441 mm stripwound solenoid (8 double pancakes, 2 paralleled 43x8 mm strips, 15 turns/layer, 50 kG at 280 V x 17,275 A) gives a **bound check only**, because the inter-pancake gap is unstated: E3 gives 5.41 T at zero gap and 5.11 T at 5 mm against a rounded 50 kG; Cu-only R is 12.5-14.5 mOhm (20-60 C) against 16.2 mOhm (figures/fig18).
+
+## Search round 2026-10-07 (manuscript preparation)
+No new usable campaign. Checked:
+- Zenodo 10.5281/zenodo.15485044 (vibrating-wire field profile, Canadian Light Source): this is an accelerator quadrupole with no coil geometry, so it is not a Bitter target.
+- Recent arXiv cold-atom electromagnets (Zeeman slowers, Feshbach and MOT coils): these are wire-wound, or are the Bitter magnets already in this table.
+- GitHub searches for Bitter design files with measured data found only the JQI and Olsen-lab repositories, which are already used.
+- FIT dissertation on force-reduced high-field magnets: design studies only, not a Bitter measurement.
