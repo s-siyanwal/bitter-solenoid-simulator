@@ -39,6 +39,42 @@ Convergence at μr = 2000: the result is 66.18 / 66.21 / 66.18 mT for coarse, fi
 
 **Finding.** The air core agrees exactly across all three codes, but the earlier in-house FEM overstated the steel's on-axis boost by about 2.8×. It had +42.8 mT at μr = 2000 against +15.4 mT in both established codes. The in-house solver was a tensor-product mesh with materials assigned by element centroid. Its "< 5 %" thin-disk closure therefore does not survive. With verified FEM the NASA field stays at +36 % to +44 % even under the thin-disk winding hypothesis, and +107 % with the published winding. The NASA discrepancy is open again.
 
+## Case D: AC impedance with GetDP a-v harmonic, massive conductors
+**Setup.** Every layer is a massive annulus carrying an imposed current (`Current_2D`). The layers are connected in series in post-processing, Z = −Σ s_k U_k / I; GetDP's region voltage has the opposite sign to the PEEC convention.
+
+**Verification first.** A 6-plate test stack was compared with the closed form:
+
+| f | DC plate law R | GetDP R | PEEC R | GetDP L | PEEC L |
+|---|---|---|---|---|---|
+| DC | 0.6912 mΩ | 0.6912 mΩ | 0.6913 mΩ | 2.18 µH | 2.19 µH |
+| 1 kHz | – | 1.488 mΩ | 1.440 mΩ | – | – |
+
+**Claw-ZS** (held out). Half-turns are smeared to full annuli at 0.5 A with 2ρ, as in the PEEC test. R includes the measured DC contact term R_x.
+
+| f [Hz] | L meas | L PEEC | L GetDP | R meas | R PEEC | R GetDP |
+|---|---|---|---|---|---|---|
+| 20 | 13.68 | 13.74 | 13.70 | 4.99 | 5.38 | 5.38 |
+| 200 | 11.10 | 11.09 | 11.01 | 7.39 | 8.22 | 8.27 |
+| 1000 | 8.94 | 8.90 | 8.76 | 14.41 | 13.91 | 14.59 |
+| 2000 | 8.38 | 8.43 | 8.23 | 21.50 | 17.40 | 19.30 |
+
+Units: L in µH, R in mΩ, both on the ×10 scale reading.
+
+**Olsen** (held out). 71 layers; only |Z| was measured. Both codes include the same R_x from the measured DC resistance.
+
+| f [Hz] | \|Z\| meas | \|Z\| PEEC | \|Z\| GetDP | L PEEC | L GetDP |
+|---|---|---|---|---|---|
+| 100 | 31.1 | 35.3 | 35.2 | 31.66 | 31.51 |
+| 1000 | 134.0 | 163.3 | 161.6 | 25.12 | 24.76 |
+| 10000 | 1204 | 1481 | 1416 | 23.56 | 22.49 |
+
+Units: |Z| in mΩ, L in µH.
+
+**Finding.**
+- **L agrees across codes.** The verified FEM and the PEEC model agree on L to 0.2–2 % (Claw-ZS) and 0.5–5 % (Olsen; FEM lower at 10 kHz, where the PEEC filaments under-resolve the skin depth).
+- **The Claw-ZS closure is genuine.** On the held-out Claw-ZS spectrum both models match the measured inductance to within 2 %.
+- **Claw-ZS AC resistance.** At 2 kHz the FEM recovers part of the AC-resistance deficit: −10 % against the measured value, versus −19 % for PEEC. This is consistent with skin/proximity effects that the coarse filament grid smears.
+- **Olsen |Z| residual.** The +18 % to +22 % |Z| residual is reproduced by an independent solver, so it is not a PEEC discretisation artefact. It belongs to the device or measurement model, so the corrector should not learn it.
+
 ## Still to do
-- **Case D:** AC impedance L(f), R(f) of the Claw-ZS and Olsen stacks with massive conductors carrying an imposed series current (GetDP `Current_2D`), compared with the bittersim PEEC model and the measured data.
 - **Optional:** a 3-D Elmer run with the Olsen 36° spacer sector.

@@ -139,7 +139,67 @@ def case_C():
     save("C_nasa", dict(measured_peak_3kW_mT=meas * 1e3, ladder=rows, bittersim_air_core_E4_mT=float(e4) * 1e3))
 
 
+# ---------------------------------------------------------------- case D: AC impedance
+def _getdp_Z(tag, layers, freqs, lc):
+    """Series impedance of massive layers with imposed current s_k (GetDP a-v harmonic).
+    GetDP's region voltage U has the opposite sign convention: Z = -sum(s_k U_k) / 1 A."""
+    from bittersim.constants import RHO_CU_20
+    regs = [dict(r1=ly.r_in, r2=ly.r_out, z1=ly.z - ly.t / 2, z2=ly.z + ly.t / 2, kind="massive",
+                 sigma=1.0 / ly.rho, I=ly.sign) for ly in layers]
+    span = max(g["z2"] for g in regs) - min(g["z1"] for g in regs)
+    box = max(1.0, 4 * span)
+    Z = []
+    for f in freqs:
+        o = F.run_getdp(os.path.join(WORK, "%s_%g" % (tag, f)), regs, [(0.0, 0.0)], Rbox=box, Zbox=box,
+                        lc_reg=lc, lc_air=0.08, lc_axis=0.003, freq=f)
+        Z.append(-sum(ly.sign * u for ly, u in zip(layers, o["U"])))
+    return Z
+
+
+def case_D():
+    import test_arxiv_checks as tac
+    from bittersim import stack
+    out = {}
+    # Claw-ZS: half-turns smeared to full annuli at 1/2 A with 2 rho (same as the PEEC test)
+    f, Zs, ph, Zpeec = tac._claw_ac()
+    sm = [ly._replace(phi=2 * math.pi, sign=0.5, rho=2 * ly.rho) for ly in tac._claw_stack()]
+    Rx = tac.CLAWZ["R_dc_paper_ohm"] - stack.stack_resistance(tac._claw_stack())["R_layers"]
+    pick = [k for k, fk in enumerate(f) if round(fk) in (20, 200, 1000, 2000)]
+    t0 = time.time()
+    Zg = _getdp_Z("Dclaw", sm, [float(f[k]) for k in pick], lc=0.0004)
+    rows = []
+    for k, zg in zip(pick, Zg):
+        w = 2 * math.pi * f[k]
+        rows.append(dict(f=float(f[k]), L_meas_uH=float(10 * Zs[k] * math.sin(ph[k]) / w * 1e6),
+                         L_peec_uH=float(Zpeec[k].imag / w * 1e6), L_getdp_uH=zg.imag / w * 1e6,
+                         R_meas_mOhm=float(10 * Zs[k] * math.cos(ph[k]) * 1e3),
+                         R_peec_mOhm=float(Zpeec[k].real * 1e3), R_getdp_mOhm=(zg.real + Rx) * 1e3,
+                         phase_meas_deg=float(math.degrees(ph[k])), phase_peec_deg=float(np.degrees(np.angle(Zpeec[k]))),
+                         phase_getdp_deg=float(np.degrees(np.angle(zg + Rx)))))
+    out["claw"] = dict(rows=rows, seconds=time.time() - t0, note="x10 scale reading for absolute L,R; phase is scale-free")
+    # Olsen: 71 full-annulus layers; only |Z| is measured
+    lay = tac._olsen_layers()
+    fo = np.array(tac.OLSEN["Z_magnitude"]["f_Hz"]); Zo = np.array(tac.OLSEN["Z_magnitude"]["Z_ohm"])
+    Rxo = tac.OLSEN["R_dc_measured_ohm"] - stack.stack_resistance(lay)["R_layers"]
+    pick = [k for k, fk in enumerate(fo) if round(fk) in (100, 1000, 10000)]
+    t0 = time.time()
+    Zg = _getdp_Z("Dolsen", lay, [float(fo[k]) for k in pick], lc=0.0003)
+    Zp = stack.stack_impedance(lay, fo[pick], nr=8, nz=2)
+    out["olsen"] = dict(seconds=time.time() - t0, rows=[
+        dict(f=float(fo[k]), absZ_meas_mOhm=float(Zo[k] * 1e3), absZ_peec_mOhm=float(abs(zp + Rxo) * 1e3),
+             absZ_getdp_mOhm=float(abs(zg + Rxo) * 1e3), L_peec_uH=float(zp.imag / (2 * math.pi * fo[k]) * 1e6),
+             L_getdp_uH=float(zg.imag / (2 * math.pi * fo[k]) * 1e6))
+        for k, zg, zp in zip(pick, Zg, Zp)])
+    save("D_ac", out)
+    for r in rows:
+        print("Claw f=%6.0f L meas %.2f peec %.2f getdp %.2f | R meas %.2f peec %.2f getdp %.2f"
+              % (r["f"], r["L_meas_uH"], r["L_peec_uH"], r["L_getdp_uH"], r["R_meas_mOhm"], r["R_peec_mOhm"], r["R_getdp_mOhm"]))
+    for r in out["olsen"]["rows"]:
+        print("Olsen f=%6.0f |Z| meas %.1f peec %.1f getdp %.1f | L peec %.2f getdp %.2f"
+              % (r["f"], r["absZ_meas_mOhm"], r["absZ_peec_mOhm"], r["absZ_getdp_mOhm"], r["L_peec_uH"], r["L_getdp_uH"]))
+
+
 if __name__ == "__main__":
     todo = sys.argv[1:] or ["A", "B", "C"]
     for c in todo:
-        {"A": case_A, "B": case_B, "C": case_C}[c]()
+        {"A": case_A, "B": case_B, "C": case_C, "D": case_D}[c]()

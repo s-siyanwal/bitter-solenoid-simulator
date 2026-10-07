@@ -169,11 +169,13 @@ def _read_points(path, complex_=False):
 
 
 def _read_region(path):
+    """OnRegion SimpleTable lines: '<region> <re> <im>'; '#' header lines are skipped."""
     vals = []
     for line in open(path):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
         v = [float(x) for x in line.split()]
-        if v:
-            vals.append(complex(v[-2], v[-1]) if len(v) >= 2 else complex(v[-1], 0))
+        vals.append(complex(v[-2], v[-1]) if len(v) >= 3 else complex(v[-1], 0))
     return vals
 
 
