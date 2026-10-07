@@ -22,3 +22,9 @@ rel = (measured - solver)/solver; |rel| > 5 % is flagged. held_out rows are scor
 | Olsen Bitter-ZS | held_out | abs(Z) at 10 kHz [mOhm] | 1204 | 1482 | -18.7 % | PEEC AC + DC contact | **>5 %** |  |
 | Olsen Bitter-ZS | held_out | abs(Z) at 10 kHz [mOhm] | 1204 | 2176 | -44.7 % | DC L (before) | **>5 %** |  |
 | Olsen Bitter-ZS | held_out | R_dc [mOhm] | 26.5 | 5.477 | +383.8 % | layers only | **>5 %** | faulty contact (paper) |
+
+## Reading (2026-10-07)
+- **Field closes wherever the winding geometry is known:** EPFL -0.3 %, Claw-ZS -1.1 %, and Bates -2 to -3 % (in bitter-residual-ml). For JQI the shape closes (B''/B0 +0.1 %) but the amplitude is 9 % high, which points to the as-built turn count in the design notebook rather than to physics.
+- **AC inductance now closes:** the PEEC model brings Claw-ZS L(f) to within 1 % (it was -39 % with DC L) and cuts Olsen's 10 kHz miss from -45 % to -19 %. The remaining JQI and EPFL L gaps have unknown measurement conditions and turn counts.
+- **DC resistance does not generalize:** the layer model is always low (EPFL +24 %, Claw-ZS +45 %, JQI curvature +88 %, Olsen x4.8), except for the JQI anti-bias coil (-0.8 %). The extra is coil- and setup-specific (results/joint_diagnostic.json), not one joint constant.
+- **Implication for the residual corrector:** field (B) is the only channel whose bare residual is small and smooth across geometries. R and L stay out of any corrector. Olsen and Claw-ZS remain held out; their rows here are transfer scores of physics changes, not fits.

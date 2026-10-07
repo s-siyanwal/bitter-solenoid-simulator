@@ -98,5 +98,5 @@ for r in rows:
         r["campaign"], r["split"], r["channel"], r["measured"], r["solver"], 100 * r["rel"], r["model"],
         "**>5 %**" if r["flag"] else "", r["note"]))
 with open(os.path.join(ROOT, "results", "GENERALIZATION.md"), "w", encoding="utf-8") as fh:
-    fh.write("\n".join(L) + "\n")
+    fh.write("\n".join(L) + "\n" + SUMMARY)
 print("\n".join(L[4:]))
