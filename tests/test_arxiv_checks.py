@@ -248,3 +248,35 @@ def test_jqi_ac_redistribution_is_small_at_100hz():
         one = _jqi_layers(kind)
         L100 = stack.stack_impedance(one, [100.0], nr=12, nz=2)[0].imag / (2 * math.pi * 100.0)
         assert L100 / stack.stack_inductance(one, 12, 2) > 0.98
+
+
+# ------------- Olsen Bitter-ZS impedance |Z(f)| (HELD OUT: score only, nothing fitted)
+with open(os.path.join(DATA, "olsen_bzs_held_out.json"), encoding="utf-8") as _fh:
+    OLSEN = json.load(_fh)
+
+
+def _olsen_layers():
+    t = np.array(OLSEN["disc_in"]) * 25.4e-3
+    g = np.array([0.0 if d is None else 1.0 / d for d in OLSEN["gap_den"]]) * 25.4e-3
+    zb = np.concatenate([[0.0], np.cumsum(t + g)[:-1]])
+    return [stack.Layer(OLSEN["R1_m"], OLSEN["R2_m"], z + ti / 2, ti) for z, ti in zip(zb, t)]
+
+
+def test_olsen_ac_impedance_beats_dc_inductance_at_khz():
+    # The only input taken from the measurement is the DC resistance, which sets a
+    # frequency-independent extra term (the paper's faulty contact). Above 1 kHz |Z| is
+    # set by the inductive part, so this scores the AC model against the DC-L model.
+    lay = _olsen_layers()
+    f = np.array(OLSEN["Z_magnitude"]["f_Hz"])
+    Zm = np.array(OLSEN["Z_magnitude"]["Z_ohm"])
+    hi = f >= 1000.0
+    Rdc = stack.stack_resistance(lay)["R_layers"]
+    Rx = OLSEN["R_dc_measured_ohm"] - Rdc
+    Zac = np.abs(stack.stack_impedance(lay, f[hi], nr=8, nz=2) + Rx)
+    Ldc = stack.stack_inductance(lay, 8, 2)
+    Zdc = np.abs(Rdc + Rx + 1j * 2 * np.pi * f[hi] * Ldc)
+    err_ac = np.abs(Zac / Zm[hi] - 1.0)
+    err_dc = np.abs(Zdc / Zm[hi] - 1.0)
+    assert np.all(err_ac < 0.30)                  # AC model: +22 to +25 % above 1 kHz
+    assert np.all(err_dc > 0.60)                  # DC inductance: +63 to +81 %
+    assert np.all(err_ac < 0.5 * err_dc)

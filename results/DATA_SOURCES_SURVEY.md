@@ -10,6 +10,8 @@ A source is usable only if it has a **measured** target **and** enough geometry 
 | Claw-ZS, arXiv:2607.02813 + github.com/olsenlab-science/Claw-ZS | Fig. 4a B(z), V, Z(f), switching | `CZS_radia.py` layer table | **in tests**: peak −1.1 % |
 | JQI Bitter Ioffe-Pritchard, arXiv:2008.11181 (RSI 92, 033201) + github.com/JQIamo/Bitter-Ioffe-Pritchard (zenodo 10.5281/zenodo.3999624) | Hall probe at 150 A, pair 3.81 cm: curvature B0 -156.94(1) uT/A, B'' -49.4(4) uT/(cm^2 A); anti-bias B0 160.46(4) uT/A, B' -24.2(1) uT/(cm A); R 9.2(6)/13.0(9)/32(2) mOhm; L 5.0(4)/21(1)/68(5) uH | layer table from the authors' design notebook `Cloverleaf_Trap_Reversed_v9.nb` (tests/data/jqi_bitter_ip_design.json); as-built counts not in the paper | **in tests**: shape ratios close (curvature B''/B0 0.3146 vs 0.3148 /cm^2; anti-bias B'/B0 +2.8 %); amplitude 9-12 % solver-high on all four (flagged, not tuned); R anti-bias 13.11 vs 13.0(9) mOhm, curvature 4.90 vs 9.2(6) mOhm (-47 %, leads/contacts) |
 
+| Olsen Bitter-ZS impedance, github olsenlab-science/Bitter-ZS (`impedance_data/`) | magnitude only, 0.1 Hz–10 kHz, 16 points | locked A_358 layer table | **in tests (held out, score only)**: PEEC AC model +22 to +25 % above 1 kHz vs DC-L +63 to +81 % |
+
 ## Blocked (missing geometry; nothing guessed)
 | source | what is public | missing |
 |---|---|---|

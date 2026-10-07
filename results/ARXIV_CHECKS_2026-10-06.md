@@ -98,3 +98,18 @@ A frequency-dependent plate-eddy model is needed before Olsen or Claw-ZS L becom
 - **AC:** current crowds toward the bore once the skin depth is comparable to the radial width, not the thickness. On a 30-plate stack (20–50 mm, 1 mm plates), L falls 15 % by 100 Hz and 28 % by 1 kHz, while R rises ×4 by 1 kHz.
 - **JQI:** the coils are short, so the effect is below 2 % at 100 Hz and the L gap above is not AC.
 - **Olsen and Claw-ZS:** these are long stacks measured over 0.1 Hz–10 kHz, and the effect should be large. Next step: build the Olsen layer table from `Radiasim_20230220.nb` (358° arcs, so near full turns) and compare L_app(f). The comparison is score-only; Olsen stays held out.
+
+## Olsen Bitter-ZS |Z(f)|: AC model vs DC inductance (2026-10-07, held out, score only)
+The layer table is the locked A_358 variant from the earlier pass (71 full-annulus layers, 17.5–35 mm), stored in `tests/data/olsen_bzs_held_out.json`. Treating the 358° arcs as full turns is needed for the axisymmetric PEEC model. The only measured input is the DC resistance (26.5 mΩ), which sets a frequency-independent extra term of 21.0 mΩ, the paper's faulty contact. No parameter is fitted.
+
+| f | measured |Z| | PEEC AC model | DC-L model | L_AC |
+|---|---|---|---|---|
+| 100 Hz | 31.1 mΩ | 35.3 (+13 %) | 34.3 (+10 %) | 31.7 µH |
+| 1 kHz | 134.0 mΩ | 163.3 (+22 %) | 219.2 (+64 %) | 25.1 µH |
+| 10 kHz | 1204 mΩ | 1482 (+23 %) | 2176 (+81 %) | 23.6 µH |
+
+Reading:
+- The DC inductance (34.6 µH) was the main source of the earlier "solver L 79 % high" result.
+- Plate eddy and proximity currents bring the model to 23.6 µH at 10 kHz, against about 19.2 µH implied by the data. This removes about 70 % of the L error.
+- The rest (+23 %) is consistent with geometry the axisymmetric model omits: the 36° Cu spacer sector, the 2° slit, and the cooling holes, which all remove copper where the current crowds. Another candidate is a uniform ~6 % scale on |Z|: the low-frequency |Z| reads 24.9 mΩ against the 26.5 mΩ fit R.
+- Nothing was trained. Olsen stays held out, and this is a score of a physics change on a magnet the model never saw.
