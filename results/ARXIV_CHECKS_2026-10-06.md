@@ -113,3 +113,19 @@ Reading:
 - Plate eddy and proximity currents bring the model to 23.6 µH at 10 kHz, against about 19.2 µH implied by the data. This removes about 70 % of the L error.
 - The rest (+23 %) is consistent with geometry the axisymmetric model omits: the 36° Cu spacer sector, the 2° slit, and the cooling holes, which all remove copper where the current crowds. Another candidate is a uniform ~6 % scale on |Z|: the low-frequency |Z| reads 24.9 mΩ against the 26.5 mΩ fit R.
 - Nothing was trained. Olsen stays held out, and this is a score of a physics change on a magnet the model never saw.
+
+## Claw-ZS impedance with phase: AC model closes L(f) (2026-10-07, held out, score only)
+The data is the earlier pass's lock-in reduction of the deposited traces (`tests/data/claw_zs_impedance_lockin.json`), with |Z| and phase at 11 frequencies. The 180° half-turns are smeared to full annuli carrying ½ A with 2ρ. This is an axisymmetric approximation that keeps the flux linkage and the half-turn resistance. The extra resistance is set from the paper's DC value (5.3 mΩ). Nothing is fitted.
+
+| f | L measured (×10 reading) | L PEEC | phase measured | phase PEEC | phase DC-L | R measured | R PEEC |
+|---|---|---|---|---|---|---|---|
+| 20 Hz | 13.68 µH | 13.74 | 19.0° | 17.8° | 18.1° | 4.99 mΩ | 5.38 |
+| 200 Hz | 11.10 | 11.09 | 62.1° | 59.5° | 73.0° | 7.39 | 8.22 |
+| 1 kHz | 8.94 | 8.90 | 75.6° | 76.0° | 86.5° | 14.41 | 13.91 |
+| 2 kHz | 8.38 | 8.43 | 78.5° | 80.7° | 88.3° | 21.50 | 17.40 |
+
+Reading:
+- **L(f) closes to within 3 % from 20 Hz to 2 kHz.** The scale-free check is the ratio L(f)/L(20 Hz). In absolute terms it also closes under the ×10 reading, which supports that reading.
+- **The old "L 57 % high" was a DC-vs-AC mismatch.** It compared the DC geometric L (13.8 µH) with the authors' RL fit (8.8 µH), and that fit is dominated by the kHz points. It was not a geometry error.
+- **Phase:** the PEEC model is within 3°, while the DC-L model misses by up to 11°.
+- **R(f):** it rises with frequency as measured. The model is 19 % low at 2 kHz, so there is extra AC loss the stack omits (Cu spacers, steel rod, slot).

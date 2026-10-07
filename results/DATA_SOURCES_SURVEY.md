@@ -12,6 +12,8 @@ A source is usable only if it has a **measured** target **and** enough geometry 
 
 | Olsen Bitter-ZS impedance, github olsenlab-science/Bitter-ZS (`impedance_data/`) | magnitude only, 0.1 Hz–10 kHz, 16 points | locked A_358 layer table | **in tests (held out, score only)**: PEEC AC model +22 to +25 % above 1 kHz vs DC-L +63 to +81 % |
 
+| Claw-ZS impedance with phase (lock-in of deposited traces, 1 Hz–2 kHz) | |Z|, phase | CZS_radia.py table, half-turns smeared | **in tests (held out, score only)**: PEEC L(f) within 3 % at 20 Hz–2 kHz; phase within 3° |
+
 ## Blocked (missing geometry; nothing guessed)
 | source | what is public | missing |
 |---|---|---|

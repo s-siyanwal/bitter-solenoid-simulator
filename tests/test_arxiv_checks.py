@@ -280,3 +280,53 @@ def test_olsen_ac_impedance_beats_dc_inductance_at_khz():
     assert np.all(err_ac < 0.30)                  # AC model: +22 to +25 % above 1 kHz
     assert np.all(err_dc > 0.60)                  # DC inductance: +63 to +81 %
     assert np.all(err_ac < 0.5 * err_dc)
+
+
+# ----------- Claw-ZS impedance with phase (HELD OUT: score only, nothing fitted)
+with open(os.path.join(DATA, "claw_zs_impedance_lockin.json"), encoding="utf-8") as _fh:
+    CLAWZ = json.load(_fh)
+
+
+def _claw_ac():
+    # Half-turns smeared to full annuli carrying 1/2 A with 2 rho: same flux linkage
+    # and same half-turn resistance as the 180 deg arcs (axisymmetric approximation).
+    sm = [ly._replace(phi=2 * math.pi, sign=0.5, rho=2 * ly.rho) for ly in _claw_stack()]
+    f = np.array(CLAWZ["f_Hz"])
+    Zs = np.array(CLAWZ["Z_ohm_deposited_scale"])
+    ph = np.radians(CLAWZ["phase_deg"])
+    Rx = CLAWZ["R_dc_paper_ohm"] - stack.stack_resistance(_claw_stack())["R_layers"]
+    Zmodel = stack.stack_impedance(sm, f, nr=8, nz=1) + Rx
+    return f, Zs, ph, Zmodel
+
+
+def test_claw_inductance_vs_frequency_shape_is_scale_free_match():
+    f, Zs, ph, Zm = _claw_ac()
+    w = 2 * np.pi * f
+    L_meas = Zs * np.sin(ph) / w             # any overall |Z| scale cancels in the ratio
+    L_mod = Zm.imag / w
+    band = (f >= 20) & (f <= 2000)
+    k20 = np.argmin(np.abs(f - 20))
+    ratio_meas = L_meas[band] / L_meas[k20]
+    ratio_mod = L_mod[band] / L_mod[k20]
+    assert np.max(np.abs(ratio_mod / ratio_meas - 1)) < 0.03    # L falls 39 % by 2 kHz in both
+
+
+def test_claw_absolute_inductance_under_x10_scale_hypothesis():
+    f, Zs, ph, Zm = _claw_ac()
+    w = 2 * np.pi * f
+    L_meas = 10 * Zs * np.sin(ph) / w
+    band = (f >= 20) & (f <= 2000)
+    assert np.max(np.abs(Zm.imag[band] / w[band] / L_meas[band] - 1)) < 0.03
+    # the old comparison: DC geometric L (13.8 uH) vs the authors' RL fit 8.8 uH (-36 %)
+    # was a DC-vs-AC mismatch, not a geometry error
+
+
+def test_claw_phase_ac_model_beats_dc_inductance():
+    f, Zs, ph, Zm = _claw_ac()
+    band = (f >= 20) & (f <= 2000)
+    d_ac = np.abs(np.angle(Zm[band]) - ph[band])
+    Ldc = stack.stack_inductance([ly._replace(phi=2 * math.pi, sign=0.5) for ly in _claw_stack()], 8, 1)
+    R0 = Zm[0].real
+    d_dc = np.abs(np.arctan2(2 * np.pi * f[band] * Ldc, R0) - ph[band])
+    assert np.degrees(d_ac.max()) < 3.0
+    assert np.degrees(d_dc.max()) > 8.0
