@@ -13,3 +13,4 @@ One entry per run of the hourly progress loop. Every run appends here and commit
 | 2026-10-07 ~07:00 | cross-campaign scorecard `results/GENERALIZATION.md` | 133 passed | `0df2b9f`, `a6847f2` | CPU 18 %, C: 12.7 GB |
 | 2026-10-07 ~08:00 | residual-ml on Windows: 58/62/58/38 pass; bates-wt 69 pass only with numpy imported before torch (Anaconda OpenMP clash, not a repo bug); nothing to push | 133 passed | none (log started next run) | CPU 11 %, C: 12.0 GB (falling; not from this work) |
 | 2026-10-07 08:54 | started this log; each run now commits and pushes an entry | 133 passed | this commit | C: 12.0 GB |
+| 2026-10-07 ~09:30 (loop stopped; manual run) | 1972 papers read (RRE bound check); figures fig12-fig18 (`examples/make_arxiv_figures.py`); LaTeX report Section 8 "Validation against measured magnets" (`report/measured_validation.tex`), changelog appended | 133 passed | this commit | C: ~12 GB |

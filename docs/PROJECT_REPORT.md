@@ -104,3 +104,7 @@ Pages URL, once `main` is public and Pages is set to `/docs`: https://s-siyanwal
 ### 2026-10-02
 
 Tests after the visual demo and the living report: 51 passed. Published continuum figures unchanged. PDF built locally from report/bitter_solenoid_report.tex (6 pages).
+
+### 2026-10-07
+
+Validation against measured magnets: Sabulsky Eq. 6 and Kobelev long-stack code checks; explicit layer stacks (bittersim/stack.py) with DC inductance and a PEEC AC-impedance model; bare-solver comparisons on EPFL (field -0.3 %), Claw-ZS (field -1.1 %, L(f) within 3 % at 20 Hz-2 kHz, held out), JQI (shape within 0.1 %, amplitude 9-12 % high), Olsen (10 kHz |Z| miss +81 % to +23 %, held out) and a 1972 RRE bound; joint diagnostic shows one joint resistance does not generalize. Figures fig12-fig18. Nothing fitted. 133 tests pass.

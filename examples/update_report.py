@@ -153,7 +153,8 @@ def append_changelog(message):
 def sync_docs():
     if not os.path.isdir(DOCS_REPORT):
         os.makedirs(DOCS_REPORT)
-    for name in ("bitter_solenoid_report.tex", "generated_numbers.tex", "changelog.tex"):
+    for name in ("bitter_solenoid_report.tex", "generated_numbers.tex", "changelog.tex",
+                 "measured_validation.tex"):
         src = os.path.join(REPORT, name)
         if os.path.isfile(src):
             shutil.copyfile(src, os.path.join(DOCS_REPORT, name))

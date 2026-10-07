@@ -5,6 +5,9 @@
 \usepackage[utf8]{inputenc}
 \usepackage{booktabs}
 \usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{placeins}
+\graphicspath{{../figures/}{../../figures/}}
 
 \title{Bitter solenoid simulator:\\continuum model, mesoscopic emulation, and the living record}
 \author{s-siyanwal/bitter-solenoid-simulator}
@@ -18,6 +21,7 @@ This note records the physics, the algorithms, and the numbers of the 0.5~T wate
 The continuum solver is the reference.
 The mesoscopic emulation is a separate layer.
 It is not molecular dynamics, and it is not a particle model of the roughly 2575~kg winding.
+Section~\ref{sec:measured} compares the bare solver with measurements on five built magnets, adds explicit layer stacks with a PEEC AC-impedance model, and records what does and does not generalize.
 Tables in the generated section are rewritten by \texttt{examples/update\_report.py} after \texttt{examples/run\_all.py} or \texttt{examples/run\_emulation.py}.
 A code or results change appends the changelog in the same commit.
 \end{abstract}
@@ -229,6 +233,8 @@ end procedure
 The browser subset caps $n$ at 300, skips the loop homogeneity inside each draw, and uses a different random stream.
 Its ppm column is the continuum value.
 Python is the reference when the two disagree.
+
+\input{measured_validation.tex}
 
 \section{Interactive page}
 

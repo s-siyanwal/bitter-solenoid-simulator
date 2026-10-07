@@ -1,0 +1,127 @@
+% Measured-data validation, October 2026. Included from bitter_solenoid_report.tex.
+\section{Validation against measured magnets (October 2026)}
+\label{sec:measured}
+
+The sections above verify the solver against closed forms.
+This section compares the \emph{bare} solver with measurements on built magnets.
+No parameter is fitted to a measurement.
+Two campaigns, Olsen Bitter-ZS and Claw-ZS, are held out of every training set of the residual corrector; their rows are scores of physics changes, not fits.
+Convention: relative residual $=(\text{measured}-\text{solver})/\text{solver}$, flagged when its magnitude exceeds 5\,\%.
+Everything here is reproduced by \texttt{tests/test\_arxiv\_checks.py}, \texttt{tests/test\_stack.py}, \texttt{examples/generalization\_table.py}, \texttt{examples/joint\_diagnostic.py} and \texttt{examples/make\_arxiv\_figures.py}.
+
+\subsection{New closed-form checks from the papers}
+\begin{itemize}
+\item \textbf{Thin Bitter arc (Sabulsky et al., arXiv:1309.5330, Eq.~6).} For a plate of thickness $t\to0$ with $Ct$ fixed, E4 tends to
+$B_z(z)=\tfrac{\mu_0 Ct}{2}\left[(a_1^2+z^2)^{-1/2}-(a_2^2+z^2)^{-1/2}\right]$.
+The code reaches $10^{-8}$ at $t=10\,\mu$m, the error falls as $t^2$, and Eq.~6 equals a 64-node radial loop integral to $10^{-10}$.
+\item \textbf{Long stack (Kobelev, arXiv:1610.06607, Eq.~2.6).} $B_0\to\mu_0C\ln(R_2/R_1)$ as $L\to\infty$ with an $O((R/L)^2)$ end correction, and the in-winding field used for the hoop stress tends to $\mu_0C\ln(R_2/r)$ (0.21\,\% of $B_0$ at $L=4$~m).
+\end{itemize}
+
+\subsection{Explicit layer stacks}
+Built magnets are tables of plates, half-plates, brass end pieces and spacers.
+\texttt{bittersim/stack.py} keeps each layer: E4 ($J=C/r$) or E3 (uniform) per layer, weighted by the arc fraction $\varphi/2\pi$, mirrored pairs with either current sign, and per-layer DC resistance
+\begin{equation}
+R_{\text{layer}}=\frac{\rho\,\varphi}{t\ln(R_2/R_1)}\quad(J=C/r),\qquad
+R_{\text{total}}=\sum R_{\text{layer}} + n_j r_j + R_{\text{leads}},
+\end{equation}
+with $r_j=R_{\text{leads}}=0$ unless a measured value is supplied.
+The DC inductance splits each layer into $n_r\times n_z$ filaments, $L=\sum_{ij}w_iw_jM_{ij}$ with the Maxwell mutual (E8) and a rectangular-ring self term $\mu_0r[\ln(8r/g)-2]$, $g=0.2235(\Delta r+\Delta z)$.
+It reproduces E9 to 0.5\,\% on a flat spiral and on a 40-plate stack.
+
+\paragraph{AC impedance (PEEC).}
+The filaments of one layer are in parallel and the layers are in series:
+\begin{equation}
+(\mathbf R_f + j\omega\mathbf M)\,\mathbf i=\mathbf P\,\mathbf V,\qquad \mathbf P^{\mathsf T}\mathbf i=\mathbf s,\qquad Z(\omega)=\mathbf s^{\mathsf T}\mathbf V,
+\end{equation}
+where $\mathbf s$ holds the layer currents ($\pm1$, or $\tfrac12$ for a smeared half-turn).
+At $\omega\to0$ this returns $J=C/r$, the plate resistance and the DC inductance exactly.
+At AC the current crowds toward the bore once the skin depth approaches the \emph{radial width} of the plate (not its thickness), so the apparent inductance falls and the resistance rises.
+
+\subsection{Data used}
+\begin{center}\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+magnet & measured target & geometry source & split \\
+\midrule
+EPFL bulk-machined spiral (arXiv:1901.08791) & Hall point, $R$, $L$ & paper Sec.~2 & published bench\\
+Claw-ZS (arXiv:2607.02813) & $B_z(z)$, $R$, $Z(f)$ with phase & \texttt{CZS\_radia.py} & held out\\
+JQI Bitter Ioffe--Pritchard (arXiv:2008.11181) & $B_0$, $B'$, $B''$, $R$, $L$ & design notebook & published bench\\
+Olsen Bitter-ZS (arXiv:2510.21064) & $|Z(f)|$, $R$ & locked A\_358 table & held out\\
+RRE 441~mm stripwound (1972) & 50~kG at 17\,275~A & paper (gap missing) & bound only\\
+\bottomrule
+\end{tabular}\end{center}
+
+\subsection{Field}
+Where the winding geometry is known the field closes: the EPFL Hall point is $-0.3$\,\% (1.2835 vs 1.28~G/A), the Claw-ZS peak is $-1.1$\,\% and its 46-point profile has an RMS residual of 0.100~mT (Fig.~\ref{fig:clawbz}).
+For JQI the \emph{shape} closes ($B''/B_0$ within 0.1\,\%, $B'/B_0$ within 2.8\,\%) while the amplitude is 9--12\,\% high on all four coefficients (Fig.~\ref{fig:jqi}); the same layer table reproduces the authors' own resistance estimates, so the as-built turn count is the open question, not the field law.
+
+\begin{figure}[ht]\centering
+\includegraphics[width=0.78\textwidth]{fig14_clawzs_bz}
+\caption{Claw-ZS axial field at 10~A: digitised measurement (Fig.~4a of the paper) against the bare solver built from the deposited layer table. Nothing fitted.}
+\label{fig:clawbz}
+\end{figure}
+
+\begin{figure}[ht]\centering
+\includegraphics[width=0.82\textwidth]{fig15_jqi_ratios}
+\caption{JQI coils: solver/measured for field coefficients, shape ratios, resistance and inductance (grey band $\pm5$\,\%).}
+\label{fig:jqi}
+\end{figure}
+
+\subsection{Inductance is an AC quantity}
+The earlier comparisons put the DC geometric inductance 57\,\% (Claw-ZS) and 79\,\% (Olsen) above the published values.
+The PEEC model shows why: the published values are kHz-dominated.
+With nothing fitted, Claw-ZS $L(f)$ closes within 3\,\% from 20~Hz to 2~kHz and the impedance phase within 3$^\circ$, against up to 11$^\circ$ for the DC model (Fig.~\ref{fig:claw}).
+For Olsen, whose deposited data is $|Z|$ only, the 10~kHz miss falls from $+81$\,\% to $+23$\,\% (Fig.~\ref{fig:olsen}); the remainder is consistent with the Cu spacer sector, slit and holes that the axisymmetric stack omits, and a steady $+6$\,\% low-frequency offset is the $|Z|$ scale (24.9 vs 26.5~m$\Omega$).
+The absolute Claw-ZS match holds only under the $\times10$ reading of the deposited impedance scale, which it therefore supports.
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{fig12_clawzs_impedance}
+\caption{Claw-ZS (held out): apparent inductance and impedance phase against frequency. Black: lock-in reduction of the deposited traces. Blue: PEEC AC model. Orange dashed: DC inductance.}
+\label{fig:claw}
+\end{figure}
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{fig13_olsen_impedance}
+\caption{Olsen Bitter-ZS (held out): $|Z(f)|$ and model error. Only the measured DC resistance enters, as a frequency-independent contact term. The steady $+6$\,\% offset below 100~Hz is the $|Z|$ scale of the deposited data (24.9 vs 26.5~m$\Omega$).}
+\label{fig:olsen}
+\end{figure}
+
+\subsection{Resistance does not generalize}
+The layer model is low on every coil except the JQI anti-bias pair ($-0.8$\,\%): EPFL $+24$\,\%, Claw-ZS $+45$\,\%, JQI curvature $+88$\,\%, Olsen $\times4.8$ (a faulty contact reported by the authors).
+If joints carried the gap, the per-interface values would agree; they do not (Fig.~\ref{fig:joint}): 7.8(1.0)~$\mu\Omega$ for Claw-ZS, 215(30) and $-5(41)$~$\mu\Omega$ for two JQI coils of the same construction, and the EPFL spiral has a 2~m$\Omega$ gap with no joints at all.
+The extra resistance is coil- and set-up-specific (leads, terminals, voltage taps), so the model keeps $r_j=R_{\text{leads}}=0$ and $R$ is not a corrector target.
+
+\begin{figure}[ht]\centering
+\includegraphics[width=0.7\textwidth]{fig17_joint_diagnostic}
+\caption{Measured-resistance gap divided by the number of current-carrying interfaces.}
+\label{fig:joint}
+\end{figure}
+
+\subsection{Scorecard and a 1972 bound}
+Fig.~\ref{fig:score} collects every row (\texttt{results/GENERALIZATION.md}).
+The 1972 RRE paper gives a 441~mm-bore stripwound solenoid (16 pancakes $\times$ 15 turns of two paralleled $43\times8$~mm strips, 17\,275~A, ``50~kG''), but not the gap between pancakes.
+E3 gives 5.41~T at zero gap and 5.11~T at 5~mm (Fig.~\ref{fig:rre}); copper-only $R$ is 12.5--14.5~m$\Omega$ (20--60~$^\circ$C) against 280~V/17\,275~A $=16.2$~m$\Omega$.
+It is consistent, and it is a bound, not a validation.
+The companion 1972 IRD paper (Mulhall) gives design scaling and ``just over 18~T at 4.75~MW'' in a 28~mm bore with no coil table.
+
+\begin{figure}[ht]\centering
+\includegraphics[width=0.86\textwidth]{fig16_scorecard}
+\caption{Bare-solver residuals by campaign and channel. Filled blue: current model. Open orange: superseded DC-inductance model.}
+\label{fig:score}
+\end{figure}
+
+\begin{figure}[ht]\centering
+\includegraphics[width=0.62\textwidth]{fig18_rre_stripwound_bound}
+\caption{RRE 441~mm stripwound solenoid: solver $B_0$ against the unstated inter-pancake gap.}
+\label{fig:rre}
+\end{figure}
+
+\subsection{Consequences}
+\begin{itemize}
+\item Field is the only channel whose bare residual is small and smooth across geometries; it is the only one eligible for the residual corrector, which still needs a non-held-out campaign with a real validation split.
+\item Inductance belongs in the physics model (PEEC), not in a corrector; measured $L$ is a target only with its frequency.
+\item Resistance stays out of any corrector until voltage-tap positions and lead resistances are known.
+\item Usable public data remains scarce: of the sources surveyed (\texttt{results/DATA\_SOURCES\_SURVEY.md}: arXiv, IEEE open copies, GitHub/Zenodo, theses, patents, facility pages), the NHMFL 41.5~T, HFML 38~T and UMBC 7~T magnets have measurements but no public coil tables, and the patents give design values only.
+\end{itemize}
+
+\FloatBarrier
