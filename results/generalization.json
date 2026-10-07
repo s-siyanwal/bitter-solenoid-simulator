@@ -1,0 +1,200 @@
+[
+ {
+  "campaign": "EPFL spiral",
+  "split": "published_bench",
+  "channel": "B at 52.2 mm [G/A]",
+  "measured": 1.28,
+  "solver": 1.2834959864760451,
+  "rel": -0.0027238000842087925,
+  "model": "E3",
+  "flag": false,
+  "note": ""
+ },
+ {
+  "campaign": "EPFL spiral",
+  "split": "published_bench",
+  "channel": "R_dc [mOhm]",
+  "measured": 10.4,
+  "solver": 8.407050949353454,
+  "rel": 0.23705685413977584,
+  "model": "layers only",
+  "flag": true,
+  "note": "no joints; leads/terminals"
+ },
+ {
+  "campaign": "EPFL spiral",
+  "split": "published_bench",
+  "channel": "L [uH]",
+  "measured": 116.0,
+  "solver": 91.38693897847716,
+  "rel": 0.2693279947511924,
+  "model": "DC filaments",
+  "flag": true,
+  "note": "measurement frequency not stated"
+ },
+ {
+  "campaign": "Claw-ZS",
+  "split": "held_out",
+  "channel": "B0 peak 10 A [mT]",
+  "measured": 2.76007,
+  "solver": 2.7921721023756008,
+  "rel": -0.011497178969837946,
+  "model": "E4 half-layers",
+  "flag": false,
+  "note": ""
+ },
+ {
+  "campaign": "Claw-ZS",
+  "split": "held_out",
+  "channel": "R_dc [mOhm]",
+  "measured": 5.3,
+  "solver": 3.656455116840624,
+  "rel": 0.4494913326269646,
+  "model": "layers only",
+  "flag": true,
+  "note": "per-joint 7.8 uOhm if joints carried it"
+ },
+ {
+  "campaign": "Claw-ZS",
+  "split": "held_out",
+  "channel": "L at 20 Hz [uH] (x10 reading)",
+  "measured": 13.675418087982804,
+  "solver": 13.743849334961,
+  "rel": -0.004979045193992637,
+  "model": "PEEC AC",
+  "flag": false,
+  "note": ""
+ },
+ {
+  "campaign": "Claw-ZS",
+  "split": "held_out",
+  "channel": "L at 2000 Hz [uH] (x10 reading)",
+  "measured": 8.37772616782999,
+  "solver": 8.427522705502428,
+  "rel": -0.005908798992606004,
+  "model": "PEEC AC",
+  "flag": false,
+  "note": ""
+ },
+ {
+  "campaign": "Claw-ZS",
+  "split": "held_out",
+  "channel": "L at 2000 Hz [uH] (x10 reading)",
+  "measured": 8.37772616782999,
+  "solver": 13.819822629076796,
+  "rel": -0.3937891684511694,
+  "model": "DC (before)",
+  "flag": true,
+  "note": "old comparison"
+ },
+ {
+  "campaign": "JQI curvature",
+  "split": "published_bench",
+  "channel": "B0 [uT/A]",
+  "measured": 156.94,
+  "solver": 171.81675565093317,
+  "rel": -0.08658501084234842,
+  "model": "E4 stack",
+  "flag": true,
+  "note": ""
+ },
+ {
+  "campaign": "JQI curvature",
+  "split": "published_bench",
+  "channel": "B''/B0 [1/cm^2]",
+  "measured": 0.31476997578692495,
+  "solver": 0.31458233476563535,
+  "rel": 0.0005964766630312869,
+  "model": "E4 stack",
+  "flag": false,
+  "note": ""
+ },
+ {
+  "campaign": "JQI anti-bias",
+  "split": "published_bench",
+  "channel": "B0 Helmholtz [uT/A]",
+  "measured": 160.46,
+  "solver": 176.86883077583667,
+  "rel": -0.09277401056963618,
+  "model": "E4 stack",
+  "flag": true,
+  "note": ""
+ },
+ {
+  "campaign": "JQI curvature",
+  "split": "published_bench",
+  "channel": "R_dc pair [mOhm]",
+  "measured": 9.2,
+  "solver": 4.897903606484691,
+  "rel": 0.8783546470411238,
+  "model": "layers only",
+  "flag": true,
+  "note": ""
+ },
+ {
+  "campaign": "JQI curvature",
+  "split": "published_bench",
+  "channel": "L one coil [uH]",
+  "measured": 5.0,
+  "solver": 5.840740134105346,
+  "rel": -0.14394410893168866,
+  "model": "PEEC 100 Hz",
+  "flag": true,
+  "note": ""
+ },
+ {
+  "campaign": "JQI anti-bias",
+  "split": "published_bench",
+  "channel": "R_dc pair [mOhm]",
+  "measured": 13.0,
+  "solver": 13.106844008843655,
+  "rel": -0.008151772369577592,
+  "model": "layers only",
+  "flag": false,
+  "note": ""
+ },
+ {
+  "campaign": "JQI anti-bias",
+  "split": "published_bench",
+  "channel": "L one coil [uH]",
+  "measured": 21.0,
+  "solver": 26.94831267133291,
+  "rel": -0.220730431024745,
+  "model": "PEEC 100 Hz",
+  "flag": true,
+  "note": ""
+ },
+ {
+  "campaign": "Olsen Bitter-ZS",
+  "split": "held_out",
+  "channel": "abs(Z) at 10 kHz [mOhm]",
+  "measured": 1204.0067013482637,
+  "solver": 1481.509596128491,
+  "rel": -0.18731089930527828,
+  "model": "PEEC AC + DC contact",
+  "flag": true,
+  "note": ""
+ },
+ {
+  "campaign": "Olsen Bitter-ZS",
+  "split": "held_out",
+  "channel": "abs(Z) at 10 kHz [mOhm]",
+  "measured": 1204.0067013482637,
+  "solver": 2176.0964156338014,
+  "rel": -0.44671261222697733,
+  "model": "DC L (before)",
+  "flag": true,
+  "note": ""
+ },
+ {
+  "campaign": "Olsen Bitter-ZS",
+  "split": "held_out",
+  "channel": "R_dc [mOhm]",
+  "measured": 26.5,
+  "solver": 5.476946820834149,
+  "rel": 3.838462170053351,
+  "model": "layers only",
+  "flag": true,
+  "note": "faulty contact (paper)"
+ }
+]
