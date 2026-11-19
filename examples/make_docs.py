@@ -1,5 +1,5 @@
 """Generate README.md and DESIGN_SUMMARY.md from results/*.json (no hand-typed numbers)."""
-import json, os
+import json, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 D = json.load(open(os.path.join(ROOT, "results", "results.json")))
 V = json.load(open(os.path.join(ROOT, "results", "validation.json")))
@@ -191,11 +191,59 @@ rmap = dict((r[0], r[2]) for r in R + VR + FR + PR + HR)
 def rtable(rows):
     return "| ID | quantity | value |\n|---|---|---|\n" + "\n".join("| %s | %s | %s |" % r for r in rows)
 
+# Prose fragments. Code settings (the current optimiser's Re penalty) are read from the package,
+# results from the JSON files, so neither is typed into the templates.
+sys.path.insert(0, os.path.join(ROOT, "package"))
+from bittersim.optimize import LIMITS as _CUR_LIM  # noqa: E402
+
+_pub_lim = D["optimiser"]["limits"]
+_RE_HARD = "Re_penalty_weight" not in _pub_lim     # published run predates the soft Re penalty
+if _RE_HARD:
+    _re_note = ("These results predate the switch to the soft Re penalty in `optimize.py`: the optimiser that "
+                "produced them treated Re ≥ %.0f as a hard constraint (recorded in `results/results.json` under "
+                "`optimiser.limits`), which is why Re = %.0f (R17) lies just above that floor. The current "
+                "optimiser only penalises Re below %.0f." % (_pub_lim["Re_min"], o["Re"], _CUR_LIM["Re_min"]))
+    _re_repro = ("**`run_all.py` does not reproduce the published optimum with the current code.** It reruns the "
+                 "optimiser (seed 1), and the published optimum was found by the earlier version with the hard "
+                 "Re ≥ %.0f constraint (see [Results](#results-published-design)). With the soft penalty the "
+                 "optimiser converges to a different design, so a full rerun changes the tables in this README, "
+                 "and the scripts that read `results/results.json` would then need rerunning too. Use "
+                 "`examples/reproduce.py` to check the published numbers against the current code." % _pub_lim["Re_min"])
+else:
+    _re_note = ("These results were produced by the current optimiser, which adds a soft penalty below Re = %.0f "
+                "(recorded in `results/results.json` under `optimiser.limits`)." % _pub_lim["Re_min"])
+    _re_repro = ("`run_all.py` reruns the same optimiser (seed 1) that produced the published optimum; rerun the "
+                 "scripts that read `results/results.json` after it.")
+FRAG = {
+    "{{HEADLINE}}": ("bore radius R1 = %.2f mm, outer radius R2 = %.2f mm and stack length L = %.1f mm. It reaches 0.5 T "
+                     "at %.1f A and %.3f V with %.3f kW of electrical power plus %.1f W of pump shaft power, holds "
+                     "%.2f ppm peak-to-peak over the 30 mm DSV, and its hottest copper is at %.3f °C"
+                     % (o["R1"] * 1e3, o["R2"] * 1e3, o["L"] * 1e3, o["I_A"], o["V_total_V"], o["P_elec_W"] / 1e3,
+                        o["P_pump_W"], o["homogeneity_ppm"], o["T_hot_C"])),
+    "{{RE_NOTE}}": _re_note,
+    "{{RE_REPRO}}": _re_repro,
+    "{{RE_MIN}}": "%.0f" % _CUR_LIM["Re_min"],
+    "{{RE_W}}": "%g" % _CUR_LIM["Re_penalty_weight"],
+    "{{CPUS}}": str(env.get("cpus", "?")),
+    "{{FMRI_SECONDS}}": "%.0f" % F["seconds"],
+    "{{HX_MINUTES}}": "%.0f" % (HX["seconds"] / 60.0),
+}
+
+
+def _frag(text):
+    for k, v in FRAG.items():
+        text = text.replace(k, v)
+    return text
+
+
 summary = open(os.path.join(ROOT, "examples", "summary_template.md")).read()
 summary = summary.replace("{{RESULTS_TABLE}}", rtable(R + VR + FR + PR + HR)).replace("{{ENV}}", envs)
-import sys
+summary = _frag(summary)
 CHECK = "--check" in sys.argv
 def _emit(name, text):
+    left = sorted(set(re.findall(r"\{\{[A-Z0-9_]+\}\}", text)))
+    if left:
+        raise SystemExit("%s: unrendered placeholders %s" % (name, ", ".join(left)))
     path = os.path.join(ROOT, name)
     if CHECK:
         if open(path).read() != text:
@@ -221,5 +269,6 @@ readme = readme.replace("{{HX_SCALE}}", "%.4f" % _h30["rotating"]["current_scale
 readme = readme.replace("{{HX_RICH_AL}}", "%.3f" % max(max(d["aligned"]["tesseral_richardson_err_ppm"].values() or [0]) for d in (_h30, _h40)))
 readme = readme.replace("{{HEAD_MIN_SECONDS}}", "%.0f" % (HD["seconds"] / 60.0))
 readme = readme.replace("{{OPT_SECONDS}}", "%.0f" % D["optimiser"]["seconds"]).replace("{{NFEV}}", str(D["optimiser"]["de_nfev"]))
+readme = _frag(readme)
 _emit("README.md", readme)
 print("ok")
