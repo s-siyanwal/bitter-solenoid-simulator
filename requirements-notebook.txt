@@ -1,0 +1,5 @@
+# Extra packages for notebooks/bitter_solenoid_realtime.ipynb on a local machine
+# (Colab and Kaggle already provide Jupyter and ipywidgets).
+-r requirements.txt
+ipywidgets>=7.2
+jupyterlab
