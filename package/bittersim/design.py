@@ -318,16 +318,12 @@ def evaluate_design(design=None, homogeneity=True, n_iter=30, rho_scale=1.0,
         dT_cond_rows.append(dT_cond)
         q_flux_rows.append(q_flux)
 
-    # Overlap-sector contact heat: local rise over copper thermal mass of overlap wedge
-    # (approximate; reported separately and folded into T_hot if R_c > 0).
+    # Overlap-sector contact heat (approximate; reported separately and folded into T_hot if R_c > 0).
+    # Steady film balance: the total contact heat leaves through the coolant film on the overlap
+    # fraction of the copper-wetted hole area, dT = P_contact / (h * A_wet * overlap_frac).
     dT_contact = 0.0
     if P_contact > 0.0 and n_interfaces > 0:
         overlap_frac = float(d.overlap_deg) / 360.0
-        # Steady: contact heat removed by neighbouring channel film over overlap arc length ~ overlap
-        # Use a simple film balance on the overlap copper perimeter proxy.
-        A_ov = A_wet_cu_per_len * n_holes * L * max(overlap_frac, 1e-6)
-        dT_contact = (P_contact / n_interfaces) / (fl["h"] * A_ov / max(n_interfaces, 1))
-        # milder: total contact heat / (h * overlap wet area)
         dT_contact = P_contact / (fl["h"] * A_wet_cu_per_len * n_holes * L * max(overlap_frac, 1e-6))
 
     i_hot = int(np.argmax(T_hot_rows))

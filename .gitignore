@@ -1,7 +1,47 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 *.egg-info/
-.ipynb_checkpoints/
+.eggs/
 build/
 dist/
+.ipynb_checkpoints/
+
+# Numba on-disk JIT cache (only written if cache=True is ever enabled)
+*.nbi
+*.nbc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Output of examples/reproduce.py (the published figures live in figures/)
+repro_out/
+
+# Local secrets and settings: never commit
+.env
+.env.*
+
+# Tooling caches
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# LaTeX build intermediates (report/*.tex is tracked; build by-products are not)
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
