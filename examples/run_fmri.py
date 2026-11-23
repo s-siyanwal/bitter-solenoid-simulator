@@ -50,7 +50,7 @@ out = {
     "rf": {"detune": cmp_["detune"], "mu": cmp_["mu"], "gain_vs_air": cmp_["gain_vs_air"],
            "gain_vs_contact": cmp_["gain_vs_contact"], "slab": cmp_["slab"], "air": cmp_["air"],
            "contact": cmp_["contact"], "gain_vs_air_by_loss_multiplier": cmp_lm},
-    "seconds": time.time() - t0,
+    "seconds": time.time() - t0, "cpus": os.cpu_count(),
 }
 json.dump(out, open(os.path.join(ROOT, "results", "fmri.json"), "w"), indent=1, default=float)
 

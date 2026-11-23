@@ -87,7 +87,7 @@ Conduction through the plate to the hole is an annular fin with an insulated out
 \end{equation}
 The lumped transient is one copper node and quasi-steady water.
 With cooling removed, temperature runs away adiabatically.
-On the seed-1 optimum that integrator reaches 85~C in 4922~s.
+On the current seed-1 optimum that integrator reaches 85~C in 4932~s (4922~s on the earlier hard-Re optimum).
 That figure is not a boiling model.
 The emulation flags the adiabatic curve at the Antoine saturation temperature and stops interpreting it there.
 On the PDF initial guess that saturation time is about 479~s.
@@ -126,24 +126,27 @@ It is not an MRI measurement.
 Decision variables are inner radius, build $(R_2-R_1)$, length, plate thickness, hole diameter, water speed, and pitch ratio.
 Voltage is derived.
 The objective is electrical power plus pump shaft power.
-Inequality limits, written as $g\ge 0$ inside the code, are hot spot $\le 85~^\circ$C, supply $\le 8$~V, homogeneity $\le 100$~ppm, pressure drop $\le 5$~bar, $\mathrm{Re}\ge 10^4$, and $R_2\le 0.3$~m, together with the box bounds in \texttt{optimize.py}.
+Inequality limits, written as $g\ge 0$ inside the code, are hot spot $\le 85~^\circ$C, supply $\le 8$~V, homogeneity $\le 100$~ppm, pressure drop $\le 5$~bar, and $R_2\le 0.3$~m, together with the box bounds in \texttt{optimize.py}.
+The Reynolds number is not a hard limit: below $\mathrm{Re}_{\min}=5500$ a soft penalty $50\,[(\mathrm{Re}_{\min}-\mathrm{Re})/\mathrm{Re}_{\min}]^2$~kW is added to the objective to keep the heat-transfer correlations in their validity range.
+Until that change the optimiser treated $\mathrm{Re}\ge 10^4$ as a hard limit.
 
 \begin{verbatim}
 procedure OPTIMISE(seed, bounds, limits):
     population <- differential_evolution(objective, bounds, seed)
-    best <- member with smallest P_elec + P_pump among feasible members
+    best <- member with smallest P_elec + P_pump + soft Re penalty (violated limits penalised)
     polished <- SLSQP(best) with finite-difference gradients
     return polished if it improves the objective and stays feasible
            else best
 end procedure
 \end{verbatim}
 
-The published seed-1 run used 10605 evaluations.
-SLSQP did not improve it.
-Active limits were homogeneity, both radii, Reynolds number, and plate and pitch near their upper bounds.
-Hot-spot temperature and voltage had a large margin.
-This report does not replace that table when the same code is re-run on another machine.
-A changed algorithm would be a new row, with its own seed and version.
+Both published seed-1 runs used 10605 evaluations.
+The earlier run (hard $\mathrm{Re}\ge 10^4$; kept in \texttt{results/archive/results\_hard\_re.json}) was not improved by SLSQP, and its active limits were homogeneity, both radii, the Reynolds floor, and plate and pitch near their upper bounds.
+In the current run (soft Re penalty) differential evolution stopped at its iteration limit, and the SLSQP polish was rejected because it moved to a different discrete hole layout with a higher objective.
+Its active limits are homogeneity, both radii, and plate and pitch near their upper bounds; the Reynolds number sits above the soft floor in a flat valley, where lowering the flow to the floor would save less than 1~W (\texttt{examples/run\_re\_investigation.py}).
+Hot-spot temperature and voltage keep a large margin in both runs.
+This report does not replace a table when the same code is re-run on another machine.
+A changed algorithm gets its own entry, with its own seed and version.
 
 \section{Catalog}
 
@@ -234,11 +237,11 @@ Python is the reference when the two disagree.
 
 \texttt{docs/index.html} (overview), \texttt{docs/demo.html} and \texttt{docs/bittersim.js} have no build step and no network requirement.
 Sliders recompute the continuum model immediately.
-Two presets fill the PDF initial guess and the seed-1 optimum at the geometry that prints 19.537~V, 17.974~kW, 21.153~C, 154.15~ppm and 4.543~V, 11.704~kW, 25.946~C, 99.95~ppm, 321.8~L/min.
+Two presets fill the PDF initial guess and the seed-1 optimum; \texttt{tests/test\_webdemo.py} checks that both reproduce \texttt{results/results.json} to a relative $10^{-9}$.
 A canvas draws the annulus, the plate pitch, the hole rows, a moving inlet-to-outlet marker, and the 30~mm DSV.
 Copper colour is $J\propto 1/r$, or a cartoon temperature that is only a drawing.
 A second canvas is a coarse elliptic-loop map of $B_z(\rho,z)$ with the DSV box and the printed ppm.
-The emulation button draws quantile bars, a Langevin cloud, and an adiabatic sparkline that is captioned separately for the 4922~s optimum and the 479~s saturation path.
+The emulation button draws quantile bars, a Langevin cloud, and an adiabatic sparkline that is captioned separately for the optimum's lumped time to 85~C and the 479~s saturation path.
 Out-of-catalog ids are refused.
 Typed numbers outside the catalog window are clamped and the clamp is explained.
 

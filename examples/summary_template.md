@@ -26,7 +26,7 @@ Equations are E1–E32 and results R1–R61. R1–R40 come from `examples/run_al
 - Resistivity ρ(T) = 1.68e-8[1+0.00393(T−20)], iterated to self-consistency with the mean and hot-spot temperatures.
 - Hole rows: default uniform pitch (pitch/D is a design variable); optional montgomery (spacing ∝ r, equal holes/ring) or vinokur (tanh pack toward bore). All holes carry the same velocity.
 - Stacked-channel friction: optional `friction_multiplier` on Darcy f for Δp only (MON: 10–20×); h stays on the smooth correlation. Default multiplier 1.0 preserves published numbers.
-- Contact resistance: optional per-interface R_c in continuum R, V, P plus overlap-sector heat; V headroom reported as max R_c/interface (≈7.6 µΩ at the published optimum).
+- Contact resistance: optional per-interface R_c in continuum R, V, P plus overlap-sector heat; V headroom reported as max R_c/interface (≈{{RC_HEADROOM}} µΩ at the published optimum).
 - Optimiser Re floor is a soft correlation-validity penalty (default Re_min = {{RE_MIN}}, BIR); the hard Re ≥ 1e4 cut is removed from `optimize.py` (the head-preset optimiser in `harmonics.py` keeps it).
 - E11 Re = ρvD/μ, Pr = c_pμ/k, h = Nu·k/D. Water properties are temperature-dependent **[A]**.
 - E12 Dittus–Boelter: Nu = 0.023Re^0.8Pr^0.4 (used).
@@ -61,7 +61,7 @@ Equations are E1–E32 and results R1–R61. R1–R40 come from `examples/run_al
 - E32: minimise P_elec + P_pump over [R1, R2−R1, L, d, D_hole, v, pitch/D]. The current is fixed by the 0.5 T equality.
 - Blueprint constraints: T_hot ≤ 85 °C, V ≤ 8 V, R1 ≥ 50 mm, R2 ≤ 0.3 m.
 - Assumed constraints **[A]**: ≤ 100 ppm over the DSV, Δp ≤ 5 bar. Reynolds number: a soft penalty {{RE_W}}·((Re_min − Re)/Re_min)² (in kW) is added below Re_min = {{RE_MIN}}; it is not a hard constraint. {{RE_NOTE}}
-- Method: differential_evolution (seed 1) with penalties, then an SLSQP polish. The polish did not improve the result, because the hole count is discrete.
+- Method: differential_evolution (seed 1) with penalties, then an SLSQP polish. {{POLISH_NOTE}}
 
 ## 7. Results
 

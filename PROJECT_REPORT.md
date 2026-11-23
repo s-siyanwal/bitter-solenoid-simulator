@@ -13,22 +13,23 @@ The continuum solver is the reference. The emulation layer is separate. It is me
 
 ## Published continuum numbers
 
-Seed-1 differential evolution, 10605 evaluations. Re-runs on this tree reproduced the same printed optimum. Do not replace this table unless the algorithm itself changes; a changed run gets its own row.
+Seed-1 differential evolution, 10605 evaluations in both runs. The optimiser changed once: the earlier run treated Re >= 1e4 as a hard constraint, the current run adds a soft penalty below Re = 5500 (README, "Why the optimum moved"). Re-running the earlier formulation on the current code reproduces its printed optimum bit for bit (`examples/run_re_investigation.py`). Do not replace this table unless the algorithm itself changes; a changed run gets its own column, and the earlier one stays.
 
-| quantity | PDF initial guess | seed-1 optimum |
-|---|---:|---:|
-| R1 | 50.00 mm | 50.01 mm |
-| R2 | 150.00 mm | 300.00 mm |
-| L | 800.0 mm | 1102.0 mm |
-| voltage | 19.537 V | 4.543 V |
-| electrical power | 17.974 kW | 11.704 kW |
-| hot-spot copper | 21.153 C | 25.946 C |
-| homogeneity, 30 mm DSV | 154.15 ppm | 99.95 ppm |
-| flow | 1834.9 L/min | 321.8 L/min |
-| copper mass | 322 kg | 2575 kg |
-| time to 85 C, lumped, cooling off | adiabatic, invalid once boiling | 4922 s |
+| quantity | PDF initial guess | seed-1 optimum, hard Re >= 1e4 (earlier) | seed-1 optimum, soft Re penalty (current) |
+|---|---:|---:|---:|
+| R1 | 50.00 mm | 50.01 mm | 50.01 mm |
+| R2 | 150.00 mm | 300.00 mm | 299.89 mm |
+| L | 800.0 mm | 1102.0 mm | 1101.7 mm |
+| voltage | 19.537 V | 4.543 V | 4.541 V |
+| electrical power | 17.974 kW | 11.704 kW | 11.705 kW |
+| hot-spot copper | 21.153 C | 25.946 C | 28.860 C |
+| homogeneity, 30 mm DSV | 154.15 ppm | 99.95 ppm | 99.99 ppm |
+| flow | 1834.9 L/min | 321.8 L/min | 188.5 L/min |
+| copper mass | 322 kg | 2575 kg | 2577 kg |
+| Reynolds number | 12477 | 10068 | 5976 |
+| time to 85 C, lumped, cooling off | adiabatic, invalid once boiling | 4922 s | 4932 s |
 
-The PDF guess violates 8 V and 100 ppm. The optimum is on the homogeneity, radius, and Reynolds bounds. Hoop stress on the optimum is 0.1176 MPa. The design is not stress-limited. Swiss-roll SNR gain 4.745 is a heuristic. mu_eff(0) = 1.
+The PDF guess violates 8 V and 100 ppm. The earlier optimum is on the homogeneity, radius, and Reynolds bounds. The current optimum is on the homogeneity and radius bounds; its Reynolds number sits above the soft floor in a flat valley. Hoop stress is 0.1176 MPa on the earlier optimum and 0.1175 MPa on the current one. The design is not stress-limited. Swiss-roll SNR gain 4.745 is a heuristic. mu_eff(0) = 1.
 
 ## Emulation, 50 draws, seed 1, PDF guess
 
@@ -42,7 +43,7 @@ Label: mesoscopic emulation, not molecular dynamics. Python is the reference. Th
 | T_hot (C) | 21.1528 | 21.0021 | 21.2889 | 21.5206 |
 | ppm | 154.146 | 152.976 | 154.021 | 154.999 |
 
-Trip fractions on temperature, boiling onset, and 0.6 yield were 0. The median voltage sits above the continuum voltage because contact resistance is sampled only in the emulation. The adiabatic PDF-guess path reaches saturation near 479 s and is invalid after that. That is not the 4922 s optimum figure.
+Trip fractions on temperature, boiling onset, and 0.6 yield were 0. The median voltage sits above the continuum voltage because contact resistance is sampled only in the emulation. The adiabatic PDF-guess path reaches saturation near 479 s and is invalid after that. That is not the optimum's lumped time to 85 C (4932 s now, 4922 s for the earlier hard-Re optimum).
 
 ## Algorithms
 
@@ -104,3 +105,7 @@ Pages URL, once `main` is public and Pages is set to `/docs`: https://s-siyanwal
 ### 2026-10-02
 
 Tests after the visual demo and the living report: 51 passed. Published continuum figures unchanged. PDF built locally from report/bitter_solenoid_report.tex (6 pages).
+
+### 2026-11-23
+
+Results regenerated with the soft Re penalty (optimize.py). The earlier hard Re >= 1e4 run is archived in results/archive/results_hard_re.json and kept as its own column. Seed-1 optimum: Re 5976, 11.705 kW electrical, 26.6 W pump, hot spot 28.860 C, 99.99 ppm. Re-running the earlier formulation on the current code reproduces the earlier optimum bit for bit (examples/run_re_investigation.py). The SLSQP polish is now judged on the penalised objective it minimises. Web demo preset and Re chip updated.

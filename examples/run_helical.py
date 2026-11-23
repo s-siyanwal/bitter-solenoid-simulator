@@ -50,6 +50,7 @@ for dsv in (0.03, 0.04):
         out["dsv"][key][kind] = a
         print(key, kind, [round(v, 2) for _, v in a["ladder_ppm"]], a["needed_shims"], a["ladder_orders_needed"], flush=True)
 out["seconds"] = time.time() - t0
+out["cpus"] = os.cpu_count()
 json.dump(out, open(os.path.join(ROOT, "results", "helical.json"), "w"), indent=1, default=float)
 
 import matplotlib.pyplot as plt

@@ -176,13 +176,13 @@
 <script src="bittersim.js"></script>
 <script>
 var S = [
-  ["R1", "inner radius R1 [mm]", 50, 100, "any", 50.00755934750425],
-  ["R2", "outer radius R2 [mm]", 60, 300, "any", 299.99726655942893],
-  ["L", "length L [mm]", 400, 1500, "any", 1101.9511068456953],
-  ["d_plate", "plate thickness [mm]", 0.5, 6, "any", 5.98979191409142],
-  ["D_hole", "cooling hole D [mm]", 1, 6, "any", 5.915140047654358],
-  ["pitch_factor", "hole pitch / D", 1.5, 8, "any", 7.961978105433783],
-  ["v_flow", "water velocity [m/s]", 0.1, 16, "any", 1.6973400741803273],
+  ["R1", "inner radius R1 [mm]", 50, 100, "any", 50.009698559213575],
+  ["R2", "outer radius R2 [mm]", 60, 300, "any", 299.8921813831347],
+  ["L", "length L [mm]", 400, 1500, "any", 1101.7097194728246],
+  ["d_plate", "plate thickness [mm]", 0.5, 6, "any", 5.994140038346344],
+  ["D_hole", "cooling hole D [mm]", 1, 6, "any", 5.225927423788358],
+  ["pitch_factor", "hole pitch / D", 1.5, 8, "any", 7.9851287412069984],
+  ["v_flow", "water velocity [m/s]", 0.1, 16, "any", 1.1352769701761931],
   ["T_in", "inlet water T [C]", 1, 95, "any", 20],
   ["dsv", "DSV diameter [mm]", 5, 80, "any", 30],
   ["B0", "target B0 [T]", 0.05, 0.6, "any", 0.5],
@@ -252,16 +252,20 @@ function designParams() {
 function chip(name, value, limit, status) {
   return "<span class='" + status + "'>" + status + " " + name + " " + value + " (limit " + limit + ")</span>";
 }
+// Soft Re floor = bittersim.constants.RE_MIN_CORRELATION (tests/test_webdemo.py checks it). Below it the
+// optimiser adds a soft penalty (correlation validity), so it is a warning here, not a hard violation.
+var RE_MIN = 5500;
 function constraints(r, p) {
   var tsat = BitterSim.tsatC(p.p_site);
   var html = "";
   function le(name, val, lim, warn) { var s = val > lim ? "violation" : (val >= warn ? "warning" : "ok"); html += chip(name, val.toPrecision(4), lim, s); }
   function ge(name, val, lim, warn) { var s = val < lim ? "violation" : (val <= warn ? "warning" : "ok"); html += chip(name, val.toPrecision(4), lim, s); }
+  function softGe(name, val, lim) { html += chip(name, val.toPrecision(4), lim, val < lim ? "warning" : "ok"); }
   le("T_hot", r.Thot, 85, 70);
   le("V", r.V, 8, 6);
   le("ppm", r.ppm, 100, 90);
   le("dp", r.dp / 1e5, 5, 4);
-  ge("Re", r.Re, 1e4, 1.2e4);
+  softGe("Re", r.Re, RE_MIN);
   le("R2", r.d.R2, 0.3, 0.29);
   ge("R1", r.d.R1, 0.05, 0.052);
   le("Tout", r.Tout, tsat - 10, tsat - 15);
@@ -507,7 +511,7 @@ function run() {
     row("homogeneity over DSV", f(r.ppm, 2), "ppm", r.ppm <= 100) +
     row("B0 (numerical, loops)", f(r.B0num, 6), "T") +
     row("flow", f(r.flowLmin, 1), "L/min") +
-    row("Reynolds", f(r.Re, 0), "", r.Re >= 1e4) +
+    row("Reynolds", f(r.Re, 0), "", r.Re >= RE_MIN) +
     row("pressure drop", f(r.dp / 1e3, 2), "kPa", r.dp <= 5e5) +
     row("hot-spot copper T", f(r.Thot, 3), "°C", r.Thot <= 85) +
     row("hoop stress bound", f(r.hoop, 3), "MPa") +

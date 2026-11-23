@@ -329,19 +329,19 @@
         v_flow: 2.5, pitch_factor: 2, T_in: 20, B0: 0.5, dsv: 0.03
       },
       seed1_optimum: {
-        R1: 0.05000755934750425, R2: 0.29999726655942893, L: 1.1019511068456953,
-        d_plate: 0.00598979191409142, d_ins: 0.00025, D_hole: 0.005915140047654358,
-        v_flow: 1.6973400741803273, pitch_factor: 7.961978105433783,
+        R1: 0.050009698559213576, R2: 0.2998921813831347, L: 1.1017097194728247,
+        d_plate: 0.005994140038346344, d_ins: 0.00025, D_hole: 0.005225927423788358,
+        v_flow: 1.1352769701761931, pitch_factor: 7.9851287412069984,
         T_in: 20, B0: 0.5, dsv: 0.03
       }
     };
   }
 
   var PUBLISHED = {
-    optimum_to_85C_s: 4922,
+    optimum_to_85C_s: 4932,
     pdf_guess_to_tsat_s: 479,
     optimum_caption: "Published lumped time to 85 C at the seed-1 optimum. Not a boiling model.",
-    guess_caption: "PDF-guess adiabatic path to saturation, about 479 s. Invalid after boiling. Separate from the 4922 s figure."
+    guess_caption: "PDF-guess adiabatic path to saturation, about 479 s. Invalid after boiling. Separate from the 4932 s figure."
   };
 
   function coarseLoops(R1, R2, L, C) {
@@ -413,7 +413,7 @@
       series: series, t85_s: t85, tsat_s: tTsat, Tsat_C: Tsat,
       published_optimum_to_85C_s: PUBLISHED.optimum_to_85C_s,
       published_pdf_guess_to_tsat_s: PUBLISHED.pdf_guess_to_tsat_s,
-      note: "Adiabatic lumped trace for the sparkline. Interpretation stops at Tsat. The published 4922 s optimum figure is not this curve."
+      note: "Adiabatic lumped trace for the sparkline. Interpretation stops at Tsat. The published 4932 s optimum figure is not this curve."
     };
   }
 

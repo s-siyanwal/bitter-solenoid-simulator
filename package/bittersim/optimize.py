@@ -81,7 +81,13 @@ def _eval(x, fixed):
     return evaluate_design(x_to_design(x, **fixed))
 
 
+def objective(res, lim=None):
+    """Quantity minimised over feasible designs: P_elec + P_pump [kW] plus the soft Re penalty."""
+    return res["P_total_W"] / 1e3 + correlation_penalty(res, lim)
+
+
 def penalised(x, fixed=None, lim=None):
+    """objective() plus exterior penalties for the hard constraints (minimised by DE)."""
     lim = lim or LIMITS
     res = _eval(x, fixed or {})
     g = constraints(res, lim)
@@ -110,20 +116,30 @@ def optimise(seed=1, maxiter=60, popsize=15, polish=True, fixed=None, verbose=Fa
     x_best = de.x
     method = "differential_evolution"
     n_hard = 5
+    polish_info = None
     if polish:
         cons = [{"type": "ineq",
                  "fun": (lambda x, i=i: constraints(_eval(x, fixed), lim)[i])}
                 for i in range(n_hard)]
-        sl = minimize(lambda x: _eval(x, fixed)["P_total_W"] / 1e3
-                      + correlation_penalty(_eval(x, fixed), lim),
+        sl = minimize(lambda x: objective(_eval(x, fixed), lim),
                       de.x, method="SLSQP", bounds=BOUNDS, constraints=cons,
                       options={"maxiter": 200, "ftol": 1e-10})
-        if sl.success and np.all(constraints(_eval(sl.x, fixed), lim) >= -1e-9) and \
-                _eval(sl.x, fixed)["P_total_W"] < _eval(de.x, fixed)["P_total_W"]:
+        res_sl = _eval(sl.x, fixed)
+        feasible = bool(np.all(constraints(res_sl, lim) >= -1e-9))
+        # Judge the polished point on the quantity both stages minimise (including the soft Re
+        # penalty), against DE's best value; comparing raw P_total could accept a point that only
+        # saves power by dropping below the Re floor.
+        accepted = bool(sl.success and feasible and objective(res_sl, lim) < float(de.fun))
+        if accepted:
             x_best = sl.x
             method = "differential_evolution + SLSQP polish"
+        polish_info = {"success": bool(sl.success), "message": str(sl.message), "nit": int(sl.nit),
+                       "feasible": feasible, "accepted": accepted,
+                       "objective_kW": float(objective(res_sl, lim)), "P_total_W": float(res_sl["P_total_W"]),
+                       "Re": float(res_sl["Re"]), "n_holes": int(res_sl["n_holes"])}
     res = _eval(x_best, fixed)
     return {"x": x_best, "result": res, "constraints": constraints(res, lim),
             "correlation_penalty": correlation_penalty(res, lim),
             "limits": lim, "method": method,
-            "de_nfev": int(de.nfev), "de_fun": float(de.fun)}
+            "de_nfev": int(de.nfev), "de_fun": float(de.fun), "de_nit": int(de.nit),
+            "de_success": bool(de.success), "de_message": str(de.message), "polish": polish_info}
