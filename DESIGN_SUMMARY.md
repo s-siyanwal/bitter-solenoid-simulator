@@ -1,6 +1,6 @@
 # Design summary for independent physics review: 0.5 T water-cooled copper Bitter solenoid simulator
 
-Equations are E1–E32 and results R1–R61. R1–R40 come from `examples/run_all.py` (python 3.13.5, numpy 2.5.3, scipy 1.18.1, numba 0.68.0, matplotlib 3.11.2); R41–R61 come from `examples/run_fmri.py`, `run_particles.py`, `run_helical.py` and `run_head.py` (see the README). **[A]** marks an assumption not in the blueprint.
+Equations are E1–E32 and results R1–R61. R1–R40 come from `examples/run_all.py` (python 3.13.18, numpy 2.5.5, scipy 1.18.1, numba 0.68.1, matplotlib 3.11.2); R41–R61 come from `examples/run_fmri.py`, `run_particles.py`, `run_helical.py` and `run_head.py` (see the README). **[A]** marks an assumption not in the blueprint.
 
 ## 1. Magnetostatics
 - E1 Ideal solenoid: B = μ0nI.
@@ -26,7 +26,7 @@ Equations are E1–E32 and results R1–R61. R1–R40 come from `examples/run_al
 - Resistivity ρ(T) = 1.68e-8[1+0.00393(T−20)], iterated to self-consistency with the mean and hot-spot temperatures.
 - Hole rows: default uniform pitch (pitch/D is a design variable); optional montgomery (spacing ∝ r, equal holes/ring) or vinokur (tanh pack toward bore). All holes carry the same velocity.
 - Stacked-channel friction: optional `friction_multiplier` on Darcy f for Δp only (MON: 10–20×); h stays on the smooth correlation. Default multiplier 1.0 preserves published numbers.
-- Contact resistance: optional per-interface R_c in continuum R, V, P plus overlap-sector heat; V headroom reported as max R_c/interface (≈7.6 µΩ at the published optimum).
+- Contact resistance: optional per-interface R_c in continuum R, V, P plus overlap-sector heat; V headroom reported as max R_c/interface (≈7.7 µΩ at the published optimum).
 - Optimiser Re floor is a soft correlation-validity penalty (default Re_min = 5500, BIR); the hard Re ≥ 1e4 cut is removed from `optimize.py` (the head-preset optimiser in `harmonics.py` keeps it).
 - E11 Re = ρvD/μ, Pr = c_pμ/k, h = Nu·k/D. Water properties are temperature-dependent **[A]**.
 - E12 Dittus–Boelter: Nu = 0.023Re^0.8Pr^0.4 (used).
@@ -60,41 +60,41 @@ Equations are E1–E32 and results R1–R61. R1–R40 come from `examples/run_al
 ## 6. Optimisation
 - E32: minimise P_elec + P_pump over [R1, R2−R1, L, d, D_hole, v, pitch/D]. The current is fixed by the 0.5 T equality.
 - Blueprint constraints: T_hot ≤ 85 °C, V ≤ 8 V, R1 ≥ 50 mm, R2 ≤ 0.3 m.
-- Assumed constraints **[A]**: ≤ 100 ppm over the DSV, Δp ≤ 5 bar. Reynolds number: a soft penalty 50·((Re_min − Re)/Re_min)² (in kW) is added below Re_min = 5500; it is not a hard constraint. These results predate the switch to the soft Re penalty in `optimize.py`: the optimiser that produced them treated Re ≥ 10000 as a hard constraint (recorded in `results/results.json` under `optimiser.limits`), which is why Re = 10068 (R17) lies just above that floor. The current optimiser only penalises Re below 5500.
-- Method: differential_evolution (seed 1) with penalties, then an SLSQP polish. The polish did not improve the result, because the hole count is discrete.
+- Assumed constraints **[A]**: ≤ 100 ppm over the DSV, Δp ≤ 5 bar. Reynolds number: a soft penalty 50·((Re_min − Re)/Re_min)² (in kW) is added below Re_min = 5500; it is not a hard constraint. The optimiser adds a soft penalty below Re = 5500 (recorded in `results/results.json` under `optimiser.limits`). At this optimum Re = 5976 (R17), so the penalty is zero. The earlier published optimum used a hard Re ≥ 10000 floor; [Why the optimum moved](README.md#why-the-optimum-moved) compares the two.
+- Method: differential_evolution (seed 1) with penalties, then an SLSQP polish. DE ran its full 100 generations without meeting its convergence tolerance; the SLSQP polish ended in a different discrete hole layout (180 instead of 129 holes) with a 8.16 W higher objective, so it was rejected.
 
 ## 7. Results
 
 | ID | quantity | value |
 |---|---|---|
 | R1 | Optimal inner radius R1 | 50.01 mm |
-| R2 | Optimal outer radius R2 | 300.00 mm |
-| R3 | Optimal stack length L | 1102.0 mm |
-| R4 | Plate thickness / insulator | 5.990 mm / 0.25 mm (assumed) |
-| R5 | Number of plates (turns) | 176.6 |
-| R6 | Cooling holes: diameter, pitch/D, count | 5.915 mm, 7.962, 115 holes in 5 rows |
-| R7 | Ampere-turns NI for Bz(0) = 0.5 T | 454948 A |
-| R8 | Current I | 2576.1 A |
-| R9 | Supply voltage / voltage per plate V0 | 4.543 V / 25.725 mV |
-| R10 | Resistance | 1.7635 mOhm |
-| R11 | Copper current density at R1 / R2 | 4.856 / 0.810 A/mm^2 |
-| R12 | Electrical power (rho at mean Cu temperature) | 11.704 kW |
-| R13 | Pump shaft power (eta = 0.7) | 81.0 W |
+| R2 | Optimal outer radius R2 | 299.89 mm |
+| R3 | Optimal stack length L | 1101.7 mm |
+| R4 | Plate thickness / insulator | 5.994 mm / 0.25 mm (assumed) |
+| R5 | Number of plates (turns) | 176.4 |
+| R6 | Cooling holes: diameter, pitch/D, count | 5.226 mm, 7.985, 129 holes in 5 rows |
+| R7 | Ampere-turns NI for Bz(0) = 0.5 T | 454848 A |
+| R8 | Current I | 2577.9 A |
+| R9 | Supply voltage / voltage per plate V0 | 4.541 V / 25.735 mV |
+| R10 | Resistance | 1.7613 mOhm |
+| R11 | Copper current density at R1 / R2 | 4.850 / 0.809 A/mm^2 |
+| R12 | Electrical power (rho at mean Cu temperature) | 11.705 kW |
+| R13 | Pump shaft power (eta = 0.7) | 26.6 W |
 | R14 | Isocentre field from exact loop model | 0.499999999 T |
-| R15 | Homogeneity, peak-to-peak over 30 mm DSV | 99.95 ppm |
-| R16 | Water velocity / total flow | 1.697 m/s / 321.8 L/min (5.35 kg/s) |
-| R17 | Reynolds / Prandtl number | 10068 / 6.901 |
-| R18 | h Dittus-Boelter / Gnielinski | 8098 / 8118 W/m^2K |
-| R19 | Pressure drop (Darcy f = 0.0314) | 10.57 kPa |
-| R20 | Mixed water outlet temperature (inlet 20 C) | 20.522 C |
-| R21 | Hottest channel: water rise / film dT / conduction dT | 2.370 / 2.900 / 0.675 K |
-| R22 | Maximum (hot-spot) copper temperature, at R1, outlet | 25.946 C |
-| R23 | Mean copper temperature | 20.901 C |
-| R24 | Max hoop stress (E21, field profile) / simple bound C B0/lambda | 0.1176 / 0.1214 MPa |
-| R25 | Axial compressive force on each half | 3656 N |
-| R26 | Inductance / stored energy / L/R time constant | 1.1589 mH / 3846 J / 0.657 s |
-| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C: lumped mean / hot-spot adiabatic bound | 54.3 s / 4922 s / 453 s |
-| R28 | Copper mass | 2575 kg |
+| R15 | Homogeneity, peak-to-peak over 30 mm DSV | 99.99 ppm |
+| R16 | Water velocity / total flow | 1.135 m/s / 188.5 L/min (3.14 kg/s) |
+| R17 | Reynolds / Prandtl number | 5976 / 6.867 |
+| R18 | h Dittus-Boelter / Gnielinski | 6029 / 5564 W/m^2K |
+| R19 | Pressure drop (Darcy f = 0.0366) | 5.92 kPa |
+| R20 | Mixed water outlet temperature (inlet 20 C) | 20.892 C |
+| R21 | Hottest channel: water rise / film dT / conduction dT | 4.167 / 4.047 / 0.645 K |
+| R22 | Maximum (hot-spot) copper temperature, at R1, outlet | 28.860 C |
+| R23 | Mean copper temperature | 21.313 C |
+| R24 | Max hoop stress (E21, field profile) / simple bound C B0/lambda | 0.1175 / 0.1213 MPa |
+| R25 | Axial compressive force on each half | 3655 N |
+| R26 | Inductance / stored energy / L/R time constant | 1.1566 mH / 3843 J / 0.657 s |
+| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C: lumped mean / hot-spot adiabatic bound | 73.7 s / 4932 s / 429 s |
+| R28 | Copper mass | 2577 kg |
 | R29 | Larmor frequency at 0.5 T | 21.288739 MHz |
 | R30 | Swiss roll tuned exactly to f_L: mu_eff(f_L), Q | 1.000 + 52.81j, Q = 96.8 |
 | R31 | Best roll tuning f0/f_L, mu_eff(f_L), legacy heuristic SNR gain (E28, superseded by R49) | 1.01475, 17.367 + 5.701j, 4.745 |
@@ -107,25 +107,25 @@ Equations are E1–E32 and results R1–R61. R1–R40 come from `examples/run_al
 | R38 | Loop model vs E3 / E4 closed forms (61 axial points) | 8.8e-14 / 1.9e-13 |
 | R39 | Long-solenoid limit L/R = 1000 vs mu0 n I | 2.00e-06 relative |
 | R40 | Numerical sheet inductance vs Nagaoka (worst of 3) | 2.5e-11 relative |
-| R41 | Zonal Z2 / Z4 over 30 mm DSV (ppm at DSV radius, unshimmed) | -66.609 / -0.0585 |
-| R42 | Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs | 99.95 -> 0.264 ppm / 177.74 -> 1.364 ppm |
-| R43 | Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed) | 40.0 mm, +-20.0 / +-60.0 mm, 1.91 / 38.90 A, 0.689 W |
-| R44 | Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21 | -2.220 / 0.0888 ppm |
+| R41 | Zonal Z2 / Z4 over 30 mm DSV (ppm at DSV radius, unshimmed) | -66.638 / -0.0586 |
+| R42 | Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs | 99.99 -> 0.264 ppm / 177.82 -> 1.364 ppm |
+| R43 | Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed) | 40.0 mm, +-20.0 / +-60.0 mm, 1.91 / 38.92 A, 0.690 W |
+| R44 | Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21 | -2.221 / 0.0889 ppm |
 | R45 | Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on the old R2 <= 0.7 m grid, see R60 for the optimiser) | R2 700 mm, L 2600 mm, P 38.7 kW + pump 0.86 kW, 14.85 V, 2603 A, 31.5 t Cu, 1645 L/min, 1024 -> 9.92 ppm, T_hot 22.07 C (violates 8 V) |
 | R46 | Field drift vs copper temperature at fixed current (numeric, isotropic expansion) | -16.500 ppm/K |
-| R47 | B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total | 2.000 / 0.333 / 2.527 / 4.439 ppm (94.5 Hz at f_L); voltage-regulated total 601.9 ppm |
-| R48 | Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode) | 0.0606 / 2.54e-04 K ; 0.0459 / 1.93e-04 K |
+| R47 | B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total | 2.000 / 0.333 / 2.129 / 4.041 ppm (86.0 Hz at f_L); voltage-regulated total 506.5 ppm |
+| R48 | Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode) | 0.0606 / 2.55e-04 K ; 0.0557 / 2.34e-04 K |
 | R49 | RF SNR, Swiss-roll slab vs same coil over air / vs coil on tissue (loss x50, best tuning f0/f_L) | 1.503 / 0.255 (f0/f_L = 1.0550, mu = 5.78 + 0.44j) |
 | R50 | RF SNR vs air for loss multiplier 1 / 10 / 50 | 3.231 / 2.366 / 1.503 |
 | R51 | RF resistances with slab: coil / tissue / slab | 0.0356 / 0.0359 / 0.1354 ohm |
-| R52 | Particle emulation: speedup on 8 threads (field / carriers / walkers), serial == parallel bit-identical | 6.57x / 7.57x / 7.93x, yes |
-| R53 | Particle vs continuum: B0, P (relative difference) | 2.05e-09 / 2.77e-07 |
-| R54 | Particle vs continuum: DSV homogeneity | 99.73 ppm vs 99.95 ppm |
-| R55 | Carrier (Bloch-Gruneisen) vs linear resistivity at mean Cu T | +0.085 % (+/- 0.141 % stat.) |
-| R56 | Hot-spot copper T: particle / continuum | 25.946 / 25.946 C |
-| R57 | Helical path, 30 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform helix / aligned slits / rotating slits | 0.26 / 1.72 / 34.42 / 1299.77 ppm |
-| R58 | Helical path, 40 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform / aligned / rotating | 1.36 / 3.49 / 47.85 / 2008.13 ppm |
-| R59 | Aligned slits, 30 mm DSV: X / Y terms of abs(B); max transverse field (total, with return bus) | 14.90 / -3.11 ppm; 4117 uT |
+| R52 | Particle emulation: speedup on 4 threads (field / carriers / walkers), serial == parallel bit-identical | 3.81x / 3.74x / 4.08x, yes |
+| R53 | Particle vs continuum: B0, P (relative difference) | 2.29e-09 / 2.77e-07 |
+| R54 | Particle vs continuum: DSV homogeneity | 99.78 ppm vs 99.99 ppm |
+| R55 | Carrier (Bloch-Gruneisen) vs linear resistivity at mean Cu T | +0.083 % (+/- 0.141 % stat.) |
+| R56 | Hot-spot copper T: particle / continuum | 28.859 / 28.860 C |
+| R57 | Helical path, 30 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform helix / aligned slits / rotating slits | 0.26 / 1.73 / 34.71 / 1324.25 ppm |
+| R58 | Helical path, 40 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform / aligned / rotating | 1.36 / 3.50 / 48.27 / 2043.15 ppm |
+| R59 | Aligned slits, 30 mm DSV: X / Y terms of abs(B); max transverse field (total, with return bus) | 15.03 / -3.13 ppm; 4140 uT |
 | R60 | Head preset optimum (DE, best of seeds 1-3, V <= 8 V): R2, L, plate, total power, V, Cu mass | 1474 mm, 3182 mm, 19.88 mm, 33.19 kW, 3.612 V, 186.8 t (seed spread in power 1.38 %) |
 | R61 | Head preset: minimum achievable supply voltage (other constraints kept) | 3.571 V (R2 at upper bound, d_plate at upper bound) |
 

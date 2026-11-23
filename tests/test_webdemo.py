@@ -73,15 +73,14 @@ def test_js_presets_match_printed_precision():
         "oV:c.V,oP:c.P/1e3,oT:c.Thot,oPpm:c.ppm,oFlow:c.flowLmin}));"
     ) % JS
     out = _node(js)
-    assert round(out["pdfV"] + 1e-12, 3) == 19.537
-    assert round(out["pdfP"] + 1e-12, 3) == 17.974
-    assert round(out["pdfT"] + 1e-12, 3) == 21.153
-    assert round(out["pdfPpm"] + 1e-12, 2) == 154.15
-    assert round(out["oV"] + 1e-12, 3) == 4.543
-    assert round(out["oP"] + 1e-12, 3) == 11.704
-    assert round(out["oT"] + 1e-12, 3) == 25.946
-    assert round(out["oPpm"] + 1e-12, 2) == 99.95
-    assert round(out["oFlow"] + 1e-12, 1) == 321.8
+    # The presets must reproduce the published numbers in results/results.json (much tighter than the
+    # printed precision), so a regenerated optimum cannot leave a stale preset behind.
+    R = json.load(open(os.path.join(os.path.dirname(DOCS), "results", "results.json")))
+    b, o = R["baseline_pdf_initial_guess"], R["optimal"]
+    for key, ref in (("pdfV", b["V_total_V"]), ("pdfP", b["P_elec_W"] / 1e3), ("pdfT", b["T_hot_C"]),
+                     ("pdfPpm", b["homogeneity_ppm"]), ("oV", o["V_total_V"]), ("oP", o["P_elec_W"] / 1e3),
+                     ("oT", o["T_hot_C"]), ("oPpm", o["homogeneity_ppm"]), ("oFlow", o["flow_L_min"])):
+        assert out[key] == pytest.approx(ref, rel=1e-9), key
 
 
 def test_landing_page_links_demo_and_explains_basics():
@@ -93,6 +92,10 @@ def test_landing_page_links_demo_and_explains_basics():
 
 def test_demo_page_labels():
     html = open(os.path.join(DOCS, "demo.html")).read()
+    from bittersim.constants import RE_MIN_CORRELATION
+    # the Re chip must use the optimiser's soft floor, not the old hard 1e4 limit
+    assert "var RE_MIN = %d;" % int(RE_MIN_CORRELATION) in html
+    assert 'ge("Re", r.Re, 1e4' not in html
     assert "Advanced (work in progress)" in html and '<details class="adv" id="advanced">' in html
     for needle in (
         "Mesoscopic emulation, not molecular dynamics",

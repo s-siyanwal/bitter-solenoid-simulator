@@ -196,8 +196,34 @@ def rtable(rows):
 sys.path.insert(0, os.path.join(ROOT, "package"))
 from bittersim.optimize import LIMITS as _CUR_LIM  # noqa: E402
 
-_pub_lim = D["optimiser"]["limits"]
+_opt = D["optimiser"]
+_pub_lim = _opt["limits"]
 _RE_HARD = "Re_penalty_weight" not in _pub_lim     # published run predates the soft Re penalty
+_pol = _opt.get("polish")
+_obj_opt_W = o["P_total_W"] + 1e3 * _opt.get("correlation_penalty", 0.0)
+
+# -- what DE and the SLSQP polish did (recorded by examples/run_all.py)
+if _pol is None:
+    _polish_note = ("The SLSQP polish did not improve it." if _opt["method"] == "differential_evolution"
+                    else "The SLSQP polish improved it.")
+else:
+    _de = ("DE ran its full %d generations without meeting its convergence tolerance" % _opt["de_nit"]
+           if not _opt["de_success"] else "DE converged after %d generations" % _opt["de_nit"])
+    if _pol["accepted"]:
+        _pl = "the SLSQP polish lowered the objective and was kept"
+    elif not _pol["success"]:
+        _pl = "the SLSQP polish did not converge (%s) and was not used" % _pol["message"]
+    elif not _pol["feasible"]:
+        _pl = "the SLSQP polish ended at an infeasible point and was not used"
+    elif _pol["n_holes"] != o["n_holes"]:
+        _pl = ("the SLSQP polish ended in a different discrete hole layout (%d instead of %d holes) with a %.2f W "
+               "higher objective, so it was rejected" % (_pol["n_holes"], o["n_holes"], 1e3 * _pol["objective_kW"] - _obj_opt_W))
+    else:
+        _pl = "the SLSQP polish did not lower the objective, so it was rejected"
+    _polish_note = "%s; %s." % (_de, _pl)
+
+# -- Reynolds-number provenance and the investigation of the move
+_why = ""
 if _RE_HARD:
     _re_note = ("These results predate the switch to the soft Re penalty in `optimize.py`: the optimiser that "
                 "produced them treated Re ≥ %.0f as a hard constraint (recorded in `results/results.json` under "
@@ -210,10 +236,89 @@ if _RE_HARD:
                  "and the scripts that read `results/results.json` would then need rerunning too. Use "
                  "`examples/reproduce.py` to check the published numbers against the current code." % _pub_lim["Re_min"])
 else:
-    _re_note = ("These results were produced by the current optimiser, which adds a soft penalty below Re = %.0f "
-                "(recorded in `results/results.json` under `optimiser.limits`)." % _pub_lim["Re_min"])
-    _re_repro = ("`run_all.py` reruns the same optimiser (seed 1) that produced the published optimum; rerun the "
-                 "scripts that read `results/results.json` after it.")
+    A = json.load(open(os.path.join(ROOT, "results", "archive", "results_hard_re.json")))
+    _inv_path = os.path.join(ROOT, "results", "re_investigation.json")
+    if not os.path.isfile(_inv_path):
+        raise SystemExit("results/re_investigation.json is missing: run examples/run_re_investigation.py")
+    INV = json.load(open(_inv_path))
+    if abs(INV["v_scan"]["optimum"]["Re"] - o["Re"]) > 1e-9 * o["Re"]:
+        raise SystemExit("results/re_investigation.json describes a different optimum than results/results.json: "
+                         "rerun examples/run_re_investigation.py")
+    ao, ahard = A["optimal"], A["optimiser"]["limits"]["Re_min"]
+    _pen_txt = ("so the penalty is zero" if o["Re"] >= _pub_lim["Re_min"] else
+                "so the penalty adds %.2f W" % (1e3 * _opt["correlation_penalty"]))
+    _re_note = ("The optimiser adds a soft penalty below Re = %.0f (recorded in `results/results.json` under "
+                "`optimiser.limits`). At this optimum Re = %.0f (R17), %s. The earlier published optimum used a hard "
+                "Re ≥ %.0f floor; [Why the optimum moved](README.md#why-the-optimum-moved) compares the two."
+                % (_pub_lim["Re_min"], o["Re"], _pen_txt, ahard))
+    _re_repro = ("`run_all.py` reruns the same optimiser (seed %d) that produced the published optimum; rerun the "
+                 "scripts that read `results/results.json`, and `examples/run_re_investigation.py`, after it "
+                 "(`make_docs.py` refuses to render an investigation that belongs to a different optimum)." % _opt["seed"])
+
+    def _cmp(label, fmt, key, scale=1.0):
+        return "| %s | %s | %s |" % (label, fmt % (ao[key] * scale), fmt % (o[key] * scale))
+    _tbl = "\n".join([
+        "| quantity | earlier optimum (hard Re ≥ %.0f) | current optimum (soft Re penalty) |" % ahard, "|---|---|---|",
+        "| R1 / R2 / L [mm] | %.2f / %.2f / %.1f | %.2f / %.2f / %.1f |" % (ao["R1"] * 1e3, ao["R2"] * 1e3, ao["L"] * 1e3, o["R1"] * 1e3, o["R2"] * 1e3, o["L"] * 1e3),
+        "| plate thickness / hole diameter [mm] | %.3f / %.3f | %.3f / %.3f |" % (ao["d_plate"] * 1e3, ao["D_hole"] * 1e3, o["d_plate"] * 1e3, o["D_hole"] * 1e3),
+        "| hole pitch / D, number of holes | %.3f, %d | %.3f, %d |" % (ao["pitch_factor"], ao["n_holes"], o["pitch_factor"], o["n_holes"]),
+        _cmp("water velocity [m/s]", "%.3f", "v_flow"),
+        _cmp("Reynolds number", "%.0f", "Re"),
+        "| electrical / pump / total power [W] | %.1f / %.1f / %.1f | %.1f / %.1f / %.1f |" % (ao["P_elec_W"], ao["P_pump_W"], ao["P_total_W"], o["P_elec_W"], o["P_pump_W"], o["P_total_W"]),
+        "| supply voltage [V] / current [A] | %.3f / %.1f | %.3f / %.1f |" % (ao["V_total_V"], ao["I_A"], o["V_total_V"], o["I_A"]),
+        "| hot-spot / mean copper temperature [°C] | %.2f / %.2f | %.2f / %.2f |" % (ao["T_hot_C"], ao["T_cu_mean_C"], o["T_hot_C"], o["T_cu_mean_C"]),
+        _cmp("homogeneity over the 30 mm DSV [ppm]", "%.2f", "homogeneity_ppm"),
+        _cmp("pressure drop [kPa]", "%.2f", "dp_Pa", 1e-3),
+        _cmp("total water flow [L/min]", "%.1f", "flow_L_min"),
+    ])
+    hr, mg, vs, sd = INV["hard_re_rerun"], INV["marginals_W_per_m_s"], INV["v_scan"], INV["seeds"]
+    if hr["x_equal_archive_bitwise"]:
+        _b1 = ("**The Re handling is the whole cause.** Running the earlier formulation (the logic of `optimize.py` at "
+               "commit `b061e03`, Re ≥ %.0f as a hard constraint) with today's code and the same DE settings returns "
+               "the archived design vector bit for bit." % ahard)
+    else:
+        _b1 = ("**The earlier formulation on today's code** (the logic of `optimize.py` at commit `b061e03`) returns a "
+               "design vector within a relative %.1e of the archived one." % hr["x_max_rel_diff_vs_archive"])
+    if mg["dP_total_dv"] > 0 and mg["dP_elec_dv"] < 0:
+        _b2 = ("**Why a lower Re wins.** At the current optimum, slowing the water cuts pump power by %.1f W per m/s, "
+               "while the warmer copper raises the Joule losses (through ρ(T)) by only %.1f W per m/s. So the optimiser "
+               "lowers the flow until the Re floor stops it: at the hard floor before (Re = %.0f), near the soft floor "
+               "now." % (mg["dP_pump_dv"], -mg["dP_elec_dv"], ao["Re"]))
+    else:
+        _b2 = ("**Marginals at the current optimum:** d(P_pump)/dv = %.1f W per m/s, d(P_elec)/dv = %.1f W per m/s."
+               % (mg["dP_pump_dv"], mg["dP_elec_dv"]))
+    others = [q for q in sd if q["seed"] != _opt["seed"]]
+    _b3 = ("**Why Re = %.0f and not exactly %.0f.** The optimum sits in a very flat valley; how DE and the polish ended is "
+           "described at the start of the Results section. Along the water velocity alone (the one variable that leaves the "
+           "discrete hole layout unchanged), P_elec + P_pump + penalty falls by only %.2f W (%.3f %%) from this point "
+           "to its lowest value, at Re = %.0f. With %s the same pipeline ends at Re = %s; all %d totals lie within "
+           "%.1f W (%.2f %%) of each other. Total power is resolved to that level; the exact Re inside this flat valley "
+           "is not." % (o["Re"], _pub_lim["Re_min"], vs["gain_W"],
+                        100 * vs["gain_rel"], vs["line_min"]["Re"],
+                        " and ".join("seed %d" % q["seed"] for q in others),
+                        " and ".join("%.0f" % q["Re"] for q in others), len(sd), INV["seed_spread_W"],
+                        100 * INV["seed_spread_rel"]))
+    _why = "\n".join([
+        "### Why the optimum moved", "",
+        ("Until the soft Re penalty was introduced, the optimiser treated Re ≥ %.0f as a hard constraint. "
+         "`results/archive/results_hard_re.json` keeps the results published with that formulation; the current ones "
+         "use the soft penalty below Re = %.0f. Same physics code, same DE settings (seed %d, maxiter %d, popsize %d)."
+         % (ahard, _pub_lim["Re_min"], _opt["seed"], _opt["maxiter"], _opt["popsize"])), "",
+        _tbl, "",
+        "- " + _b1, "- " + _b2, "- " + _b3, "",
+        "The analysis is reproduced by `examples/run_re_investigation.py` (`results/re_investigation.json`).", "",
+        "![re investigation](figures/fig12_re_investigation.png)",
+        ("*Figure 12. Left: change in pump power, Joule power and P_elec + P_pump + Re penalty when only the water "
+         "velocity is varied at the current optimum. Right: the optima found by the earlier formulation and by the "
+         "current optimiser with seeds 1–3.*"), ""])
+
+
+def _rt(seconds, cpus, minutes=False):
+    v = ("%.0f min" % (seconds / 60.0)) if minutes else ("%.0f s" % seconds)
+    return v + (" (%d CPUs)" % cpus if cpus else "")
+
+
+_cli_x = _opt["x"]
 FRAG = {
     "{{HEADLINE}}": ("bore radius R1 = %.2f mm, outer radius R2 = %.2f mm and stack length L = %.1f mm. It reaches 0.5 T "
                      "at %.1f A and %.3f V with %.3f kW of electrical power plus %.1f W of pump shaft power, holds "
@@ -222,11 +327,24 @@ FRAG = {
                         o["P_pump_W"], o["homogeneity_ppm"], o["T_hot_C"])),
     "{{RE_NOTE}}": _re_note,
     "{{RE_REPRO}}": _re_repro,
+    "{{WHY_MOVED}}": _why,
+    "{{POLISH_NOTE}}": _polish_note[0].upper() + _polish_note[1:],
     "{{RE_MIN}}": "%.0f" % _CUR_LIM["Re_min"],
     "{{RE_W}}": "%g" % _CUR_LIM["Re_penalty_weight"],
-    "{{CPUS}}": str(env.get("cpus", "?")),
-    "{{FMRI_SECONDS}}": "%.0f" % F["seconds"],
-    "{{HX_MINUTES}}": "%.0f" % (HX["seconds"] / 60.0),
+    "{{CLI_OPT}}": ("--R1 %.6g --R2 %.6g --L %.6g --d-plate %.6g --D-hole %.6g --v-flow %.6g --pitch-factor %.6g"
+                    % (_cli_x[0], _cli_x[0] + _cli_x[1], _cli_x[2], _cli_x[3], _cli_x[4], _cli_x[5], _cli_x[6])),
+    "{{RT_ALL}}": "optimiser " + _rt(_opt["seconds"], env.get("cpus")),
+    "{{RT_FMRI}}": _rt(F["seconds"], F.get("cpus")),
+    "{{RT_HX}}": _rt(HX["seconds"], HX.get("cpus"), minutes=True),
+    "{{RT_HEAD}}": _rt(HD["seconds"], HD.get("cpus"), minutes=True),
+    "{{RT_INV}}": "not run" if _RE_HARD else _rt(INV["seconds"], INV.get("cpus"), minutes=True),
+    "{{P_TMEAN}}": "%.1f" % o["T_cu_mean_C"],
+    "{{CU_MASS}}": "%.0f" % o["mass_cu_kg"],
+    "{{P_THOT}}": "%.1f" % o["T_hot_C"],
+    "{{P_RHO_CMP}}": ("smaller than" if abs(_pc["rho_bg_model"]["rel_err"]) < _pc["rho_mean"]["stderr_rel"] else "larger than"),
+    # max contact resistance per interface within the supply ceiling (same formula as evaluate_design)
+    "{{RC_HEADROOM}}": "%.1f" % (1e6 * o.get("R_c_max_per_interface_ohm",
+                                         (o.get("V_supply_max", 8.0) - o["V_total_V"]) / o["I_A"] / (int(round(o["n_turns"])) - 1))),
 }
 
 

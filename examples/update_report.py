@@ -162,15 +162,25 @@ def sync_docs():
         shutil.copyfile(src_md, os.path.join(ROOT, "docs", "PROJECT_REPORT.md"))
 
 
+def _published_tokens():
+    """Numbers the generated tables must show, formatted exactly as write_numbers() prints them."""
+    D = _load("results.json")
+    o, b, x = D["optimal"], D["baseline_pdf_initial_guess"], D["extra"]
+    return ["%.3f" % (b["P_elec_W"] / 1e3), "%.3f" % b["V_total_V"], "%.3f" % b["T_hot_C"],
+            "%.3f" % (o["P_elec_W"] / 1e3), "%.3f" % o["V_total_V"], "%.3f" % o["T_hot_C"],
+            "%.2f" % o["homogeneity_ppm"], "%.0f" % x["pump_failure_time_to_85C_s"]]
+
+
 def check():
     num = open(os.path.join(REPORT, "generated_numbers.tex")).read()
     log = open(os.path.join(REPORT, "changelog.tex")).read()
     tex = open(os.path.join(REPORT, "bitter_solenoid_report.tex")).read()
     md = open(os.path.join(ROOT, "PROJECT_REPORT.md")).read()
-    required = ["17.974", "19.537", "21.153", "11.704", "4.543", "25.946", "99.95", "4922"]
-    for token in required:
-        if token not in num and token not in md:
-            raise SystemExit("missing published figure %s" % token)
+    # the generated tables must carry the numbers of the current results/results.json
+    for token in _published_tokens():
+        if token not in num:
+            raise SystemExit("report/generated_numbers.tex lacks published figure %s: "
+                             "run examples/update_report.py" % token)
     if "generated_numbers" not in tex or "changelog" not in tex:
         raise SystemExit("main tex does not input the generated sections")
     if "mesoscopic emulation, not molecular dynamics" not in md.lower() and "Mesoscopic emulation" not in md:

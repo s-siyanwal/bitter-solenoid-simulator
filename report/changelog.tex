@@ -14,3 +14,6 @@ Report files are \texttt{PROJECT\_REPORT.md} and this LaTeX tree.
 \paragraph{2026-10-02.}
 Tests after the visual demo and the living report: 51 passed. Published continuum figures unchanged. PDF built locally from report/bitter\_solenoid\_report.tex (6 pages).
 
+\paragraph{2026-11-23.}
+Results regenerated with the soft Re penalty (optimize.py). The earlier hard Re >= 1e4 run is archived in results/archive/results\_hard\_re.json and kept as its own column. Seed-1 optimum: Re 5976, 11.705 kW electrical, 26.6 W pump, hot spot 28.860 C, 99.99 ppm. Re-running the earlier formulation on the current code reproduces the earlier optimum bit for bit (examples/run\_re\_investigation.py). The SLSQP polish is now judged on the penalised objective it minimises. Web demo preset and Re chip updated.
+

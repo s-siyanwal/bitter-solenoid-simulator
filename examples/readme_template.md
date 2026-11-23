@@ -35,7 +35,7 @@ Command line (`pip install -e .` installs the package and a `bittersim` command;
 
 ```bash
 python -m bittersim evaluate             # blueprint initial-guess design (R33)
-python -m bittersim evaluate --R2 0.3 --L 1.102 --d-plate 0.00599 --D-hole 0.005915 --v-flow 1.697 --pitch-factor 7.962   # published optimum, rounded inputs
+python -m bittersim evaluate {{CLI_OPT}}   # published optimum (inputs to 6 significant figures)
 python -m bittersim optimise --maxiter 100   # current optimiser; see "Reproducing the results"
 python -m bittersim field --rho 0 0.01 0.02 --z 0 0 0.01
 python -m bittersim swissroll
@@ -81,11 +81,11 @@ The [live demo](https://s-siyanwal.github.io/bitter-solenoid-simulator/) is serv
 
 The full equation list (E1–E32) is in [DESIGN_SUMMARY.md](DESIGN_SUMMARY.md).
 
-**Simulation vs emulation.** `evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~2575 kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md). `particles.py` (Numba-parallel current elements, carriers and heat walkers) re-derives the continuum numbers from particles; see [Particle emulation](#particle-emulation-vs-continuum-simulation) below.
+**Simulation vs emulation.** `evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~{{CU_MASS}} kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md). `particles.py` (Numba-parallel current elements, carriers and heat walkers) re-derives the continuum numbers from particles; see [Particle emulation](#particle-emulation-vs-continuum-simulation) below.
 
 ## Results: published design
 
-The published optimum comes from a differential-evolution run (seed 1, {{NFEV}} evaluations) that took {{OPT_SECONDS}} s. The SLSQP polish did not improve it. The core design results were computed on {{ENV}}.
+The published optimum comes from a differential-evolution run (seed 1, {{NFEV}} evaluations) that took {{OPT_SECONDS}} s. {{POLISH_NOTE}} The core design results were computed on {{ENV}}.
 
 **Reynolds number.** {{RE_NOTE}}
 
@@ -109,6 +109,8 @@ At 0.5 T the design is therefore driven by field quality and size, not by coolin
 ![mechanics](figures/fig5_mechanics.png)
 *Figure 5. Left: Bitter current density J ∝ 1/r in the copper. Right: midplane hoop stress and Bz(r, z = 0).*
 
+{{WHY_MOVED}}
+
 ## Reproducing the results
 
 Every result in this README is rendered from `results/*.json` by `examples/make_docs.py`. The test suite runs `make_docs.py --check`, which fails if `README.md` or `DESIGN_SUMMARY.md` is out of date.
@@ -121,16 +123,17 @@ python examples/reproduce.py         # exit code 1 if any quantity does not matc
 
 It re-evaluates the published design vector (`results/results.json` → `optimiser.x`) with the current code, recomputes the quantities behind rows R1–R51 with the same calls as the scripts below, compares them with the stored JSON values (relative tolerance 1e-6; quantities that are round-off-level errors or quantised to a grid get a matching absolute tolerance), and redraws figures 1–5. CI runs it on every push.
 
-**Full regeneration.** These scripts overwrite the committed files under `results/` and `figures/`. `run_all.py` and `run_emulation.py` also rewrite `VALIDATION.md` and the report tables (`report/`, `docs/report/`), so compare with `git diff`. The runtimes are the ones recorded in the published runs, on {{CPUS}} CPU threads.
+**Full regeneration.** These scripts overwrite the committed files under `results/` and `figures/`. `run_all.py` and `run_emulation.py` also rewrite `VALIDATION.md` and the report tables (`report/`, `docs/report/`), so compare with `git diff`. Runtimes are as recorded in each JSON output; they depend on the machine (CPU count in brackets where it was recorded).
 
 | README rows | script | writes | recorded runtime |
 |---|---|---|---|
-| R1–R40, figures 1–5 | `examples/run_all.py` | `results/results.json`, `results/validation.json`, `results/RESULTS.md`, `figures/fig1`–`fig5`, `VALIDATION.md`, report tables | optimiser {{OPT_SECONDS}} s; the whole script takes a few minutes |
-| R41–R51, figure 7 | `examples/run_fmri.py` | `results/fmri.json`, `figures/fig7_fmri.png` | {{FMRI_SECONDS}} s |
+| R1–R40, figures 1–5 | `examples/run_all.py` | `results/results.json`, `results/validation.json`, `results/RESULTS.md`, `figures/fig1`–`fig5`, `VALIDATION.md`, report tables | {{RT_ALL}} |
+| R41–R51, figure 7 | `examples/run_fmri.py` | `results/fmri.json`, `figures/fig7_fmri.png` | {{RT_FMRI}} |
 | R52–R56, figures 8–9 | `examples/run_particles.py` | `results/particles.json`, `figures/fig8_particles.png`, `figures/fig9_particle_convergence.png` | not recorded |
-| R57–R59, figure 10 | `examples/run_helical.py` | `results/helical.json`, `figures/fig10_helical.png` | {{HX_MINUTES}} min |
-| R60–R61, figure 11 | `examples/run_head.py` | `results/head.json`, `figures/fig11_head.png` | {{HEAD_MIN_SECONDS}} min |
-| mesoscopic emulation (around the blueprint initial guess) | `examples/run_emulation.py` | `results/emulation_compare.json`, `figures/fig6_emulation.png` (not committed), report tables | not recorded |
+| R57–R59, figure 10 | `examples/run_helical.py` | `results/helical.json`, `figures/fig10_helical.png` | {{RT_HX}} |
+| R60–R61, figure 11 | `examples/run_head.py` | `results/head.json`, `figures/fig11_head.png` | {{RT_HEAD}}, from an earlier run: not regenerated, because the head-preset optimiser uses neither `optimize.py` nor `results/results.json` |
+| mesoscopic emulation (around the blueprint initial guess) | `examples/run_emulation.py` | `results/emulation_compare.json`, `figures/fig6_emulation.png` (not committed), report tables | not recorded; not regenerated, because it does not use the optimum |
+| why the optimum moved, figure 12 | `examples/run_re_investigation.py` | `results/re_investigation.json`, `figures/fig12_re_investigation.png` | {{RT_INV}} |
 | all rendered tables | `examples/make_docs.py` | `README.md`, `DESIGN_SUMMARY.md` | seconds |
 
 `run_fmri.py`, `run_particles.py` and `run_helical.py` read the published optimum from `results/results.json`; they do not rerun the optimiser. `run_particles.py`, `run_helical.py` and `run_head.py` accept `--quick` for a coarse smoke run whose numbers are not the published ones.
@@ -145,7 +148,7 @@ It re-evaluates the published design vector (`results/results.json` → `optimis
 
 How to read these numbers:
 - **Shims.** Two thin-loop pairs inside the bore cancel Z2 and Z4. What is left is mostly Z6.
-- **Head preset.** It sits at the upper end of the R2 grid in `head_preset()`, so it is not a converged optimum. The design is heavy and needs more than the 8 V supply. A copper-cost figure appears only when you pass a price: `head_preset(copper_usd_per_kg=...)`.
+- **Head preset.** It sits at the upper end of the R2 grid in `head_preset()`, so it is not a converged optimum. Its cooling and plate parameters are those of the earlier hard-Re optimum, kept fixed so the grid result stays comparable. The design is heavy and needs more than the 8 V supply. A copper-cost figure appears only when you pass a price: `head_preset(copper_usd_per_kg=...)`.
 - **Stability.** At fixed current, B falls with copper temperature by the R46 coefficient (thermal expansion). A voltage-regulated supply adds the copper resistance coefficient on top, which gives the voltage-mode total in R47. So the magnet needs a current-regulated supply and chiller water held within the R48 amplitude.
 - **RF.** This model is quasi-static: a surface loop, a laterally infinite uniaxial Swiss-roll slab, and a conducting half-space for the tissue. The roll array improves on the same coil held off over an air gap. It does not beat putting the coil straight on the tissue. The old E28 heuristic (R31) overstated the gain.
 - **Helical path.** Tesseral terms from the helical current path are computed in the 'Helical current path' section below.
@@ -175,7 +178,7 @@ How to read these numbers:
   - V = P / I, so the shared ⟨1/r⟩ error cancels in V.
 - **Homogeneity.** The ppm figure needs about 1e-7 relative field accuracy, so it converges slowly with N (fig9). The continuum reference is the loop model evaluated on the same 404 points ({{P_PPM_SAME}} ppm; R15 reports {{P_PPM_R15}} ppm).
 - **Should differ (different physics):**
-  - ρ(T). The Bloch–Grüneisen slope at 20 °C differs from the linear α = 0.00393 1/K. The power and hot-spot temperature differ accordingly. Between 21 and 26 °C the model gap is small ({{P_RHO_MODEL}} at the mean Cu temperature), smaller than the 1e6-carrier sampling error ({{P_RHO_SE}}). It grows to {{P_RHO_85}} at the 85 °C trip limit.
+  - ρ(T). The Bloch–Grüneisen slope at 20 °C differs from the linear α = 0.00393 1/K. The power and hot-spot temperature differ accordingly. Between the mean copper temperature ({{P_TMEAN}} °C) and the hot spot ({{P_THOT}} °C) the model gap is small ({{P_RHO_MODEL}} at the mean Cu temperature), {{P_RHO_CMP}} the {{P_CARRIERS_N}}-carrier sampling error ({{P_RHO_SE}}). It grows to {{P_RHO_85}} at the 85 °C trip limit.
   - The emulated hot spot still takes the water rise and film drop from the continuum correlations, rescaled by the carrier ρ. Only conduction and resistivity come from particles.
 - **Continuum contact resistance:** optional per-interface `R_c_ohm` (default 0) enters R, V, P and overlap-sector heat; V headroom is reported as max R_c/interface. Emulation still samples log-normal contacts.
 - **Neither model includes:** a full Florida-Bitter elongated/staggered plate, or a turbulence-resolving CFD channel model. Classical carriers reproduce Drude σ under the relaxation-time approximation. Quantum (Fermi–Dirac) statistics change v_F and the mean free path, not σ.

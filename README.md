@@ -2,7 +2,7 @@
 
 `bittersim` is a Python simulator for a **0.5 T water-cooled copper Bitter solenoid** with Swiss-roll RF metamaterials for early-stage fMRI. It models the magnetic field and its homogeneity, the coupled electrical / thermal / hydraulic behaviour of the perforated copper plate stack, the mechanics, and an RF layer, and it searches the design space for the lowest-power magnet that meets the field, cooling and supply limits. It implements *"Computational Blueprint for a Real-Time 0.5 Tesla Water-Cooled Copper Solenoid Simulator"*. One full design evaluation takes about 10 ms after Numba warm-up, which is what drives the interactive notebook and the browser demo.
 
-**Published design** (seed-1 optimum, rows R1–R34 below): bore radius R1 = 50.01 mm, outer radius R2 = 300.00 mm and stack length L = 1102.0 mm. It reaches 0.5 T at 2576.1 A and 4.543 V with 11.704 kW of electrical power plus 81.0 W of pump shaft power, holds 99.95 ppm peak-to-peak over the 30 mm DSV, and its hottest copper is at 25.946 °C.
+**Published design** (seed-1 optimum, rows R1–R34 below): bore radius R1 = 50.01 mm, outer radius R2 = 299.89 mm and stack length L = 1101.7 mm. It reaches 0.5 T at 2577.9 A and 4.541 V with 11.705 kW of electrical power plus 26.6 W of pump shaft power, holds 99.99 ppm peak-to-peak over the 30 mm DSV, and its hottest copper is at 28.860 °C.
 
 **[Live demo](https://s-siyanwal.github.io/bitter-solenoid-simulator/)** (no install) · [Equations E1–E32](DESIGN_SUMMARY.md) · [Validation](VALIDATION.md) · [Emulation notes](EMULATION.md) · [Project report](PROJECT_REPORT.md)
 
@@ -35,7 +35,7 @@ Command line (`pip install -e .` installs the package and a `bittersim` command;
 
 ```bash
 python -m bittersim evaluate             # blueprint initial-guess design (R33)
-python -m bittersim evaluate --R2 0.3 --L 1.102 --d-plate 0.00599 --D-hole 0.005915 --v-flow 1.697 --pitch-factor 7.962   # published optimum, rounded inputs
+python -m bittersim evaluate --R1 0.0500097 --R2 0.299892 --L 1.10171 --d-plate 0.00599414 --D-hole 0.00522593 --v-flow 1.13528 --pitch-factor 7.98513   # published optimum (inputs to 6 significant figures)
 python -m bittersim optimise --maxiter 100   # current optimiser; see "Reproducing the results"
 python -m bittersim field --rho 0 0.01 0.02 --z 0 0 0.01
 python -m bittersim swissroll
@@ -81,44 +81,44 @@ The [live demo](https://s-siyanwal.github.io/bitter-solenoid-simulator/) is serv
 
 The full equation list (E1–E32) is in [DESIGN_SUMMARY.md](DESIGN_SUMMARY.md).
 
-**Simulation vs emulation.** `evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~2575 kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md). `particles.py` (Numba-parallel current elements, carriers and heat walkers) re-derives the continuum numbers from particles; see [Particle emulation](#particle-emulation-vs-continuum-simulation) below.
+**Simulation vs emulation.** `evaluate` and `optimise` are the continuum simulator. `emulate` is a separate layer: a Drude representative volume, contact-resistance scatter, saturation and onset-of-nucleate-boiling flags, and percentile bands. It does not replace the continuum model, and it is not a particle model of the ~2577 kg magnet. Heuristics are labelled in the UI and in JSON as `model_grade`. The continuum optimum in the tables below is unchanged. See [EMULATION.md](EMULATION.md). `particles.py` (Numba-parallel current elements, carriers and heat walkers) re-derives the continuum numbers from particles; see [Particle emulation](#particle-emulation-vs-continuum-simulation) below.
 
 ## Results: published design
 
-The published optimum comes from a differential-evolution run (seed 1, 10605 evaluations) that took 112 s. The SLSQP polish did not improve it. The core design results were computed on python 3.13.5, numpy 2.5.3, scipy 1.18.1, numba 0.68.0, matplotlib 3.11.2.
+The published optimum comes from a differential-evolution run (seed 1, 10605 evaluations) that took 169 s. DE ran its full 100 generations without meeting its convergence tolerance; the SLSQP polish ended in a different discrete hole layout (180 instead of 129 holes) with a 8.16 W higher objective, so it was rejected. The core design results were computed on python 3.13.18, numpy 2.5.5, scipy 1.18.1, numba 0.68.1, matplotlib 3.11.2.
 
-**Reynolds number.** These results predate the switch to the soft Re penalty in `optimize.py`: the optimiser that produced them treated Re ≥ 10000 as a hard constraint (recorded in `results/results.json` under `optimiser.limits`), which is why Re = 10068 (R17) lies just above that floor. The current optimiser only penalises Re below 5500.
+**Reynolds number.** The optimiser adds a soft penalty below Re = 5500 (recorded in `results/results.json` under `optimiser.limits`). At this optimum Re = 5976 (R17), so the penalty is zero. The earlier published optimum used a hard Re ≥ 10000 floor; [Why the optimum moved](README.md#why-the-optimum-moved) compares the two.
 
 | ID | quantity | value |
 |---|---|---|
 | R1 | Optimal inner radius R1 | 50.01 mm |
-| R2 | Optimal outer radius R2 | 300.00 mm |
-| R3 | Optimal stack length L | 1102.0 mm |
-| R4 | Plate thickness / insulator | 5.990 mm / 0.25 mm (assumed) |
-| R5 | Number of plates (turns) | 176.6 |
-| R6 | Cooling holes: diameter, pitch/D, count | 5.915 mm, 7.962, 115 holes in 5 rows |
-| R7 | Ampere-turns NI for Bz(0) = 0.5 T | 454948 A |
-| R8 | Current I | 2576.1 A |
-| R9 | Supply voltage / voltage per plate V0 | 4.543 V / 25.725 mV |
-| R10 | Resistance | 1.7635 mOhm |
-| R11 | Copper current density at R1 / R2 | 4.856 / 0.810 A/mm^2 |
-| R12 | Electrical power (rho at mean Cu temperature) | 11.704 kW |
-| R13 | Pump shaft power (eta = 0.7) | 81.0 W |
+| R2 | Optimal outer radius R2 | 299.89 mm |
+| R3 | Optimal stack length L | 1101.7 mm |
+| R4 | Plate thickness / insulator | 5.994 mm / 0.25 mm (assumed) |
+| R5 | Number of plates (turns) | 176.4 |
+| R6 | Cooling holes: diameter, pitch/D, count | 5.226 mm, 7.985, 129 holes in 5 rows |
+| R7 | Ampere-turns NI for Bz(0) = 0.5 T | 454848 A |
+| R8 | Current I | 2577.9 A |
+| R9 | Supply voltage / voltage per plate V0 | 4.541 V / 25.735 mV |
+| R10 | Resistance | 1.7613 mOhm |
+| R11 | Copper current density at R1 / R2 | 4.850 / 0.809 A/mm^2 |
+| R12 | Electrical power (rho at mean Cu temperature) | 11.705 kW |
+| R13 | Pump shaft power (eta = 0.7) | 26.6 W |
 | R14 | Isocentre field from exact loop model | 0.499999999 T |
-| R15 | Homogeneity, peak-to-peak over 30 mm DSV | 99.95 ppm |
-| R16 | Water velocity / total flow | 1.697 m/s / 321.8 L/min (5.35 kg/s) |
-| R17 | Reynolds / Prandtl number | 10068 / 6.901 |
-| R18 | h Dittus-Boelter / Gnielinski | 8098 / 8118 W/m^2K |
-| R19 | Pressure drop (Darcy f = 0.0314) | 10.57 kPa |
-| R20 | Mixed water outlet temperature (inlet 20 C) | 20.522 C |
-| R21 | Hottest channel: water rise / film dT / conduction dT | 2.370 / 2.900 / 0.675 K |
-| R22 | Maximum (hot-spot) copper temperature, at R1, outlet | 25.946 C |
-| R23 | Mean copper temperature | 20.901 C |
-| R24 | Max hoop stress (E21, field profile) / simple bound C B0/lambda | 0.1176 / 0.1214 MPa |
-| R25 | Axial compressive force on each half | 3656 N |
-| R26 | Inductance / stored energy / L/R time constant | 1.1589 mH / 3846 J / 0.657 s |
-| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C: lumped mean / hot-spot adiabatic bound | 54.3 s / 4922 s / 453 s |
-| R28 | Copper mass | 2575 kg |
+| R15 | Homogeneity, peak-to-peak over 30 mm DSV | 99.99 ppm |
+| R16 | Water velocity / total flow | 1.135 m/s / 188.5 L/min (3.14 kg/s) |
+| R17 | Reynolds / Prandtl number | 5976 / 6.867 |
+| R18 | h Dittus-Boelter / Gnielinski | 6029 / 5564 W/m^2K |
+| R19 | Pressure drop (Darcy f = 0.0366) | 5.92 kPa |
+| R20 | Mixed water outlet temperature (inlet 20 C) | 20.892 C |
+| R21 | Hottest channel: water rise / film dT / conduction dT | 4.167 / 4.047 / 0.645 K |
+| R22 | Maximum (hot-spot) copper temperature, at R1, outlet | 28.860 C |
+| R23 | Mean copper temperature | 21.313 C |
+| R24 | Max hoop stress (E21, field profile) / simple bound C B0/lambda | 0.1175 / 0.1213 MPa |
+| R25 | Axial compressive force on each half | 3655 N |
+| R26 | Inductance / stored energy / L/R time constant | 1.1566 mH / 3843 J / 0.657 s |
+| R27 | Lumped thermal time constant (63 %) / pump-failure time to 85 C: lumped mean / hot-spot adiabatic bound | 73.7 s / 4932 s / 429 s |
+| R28 | Copper mass | 2577 kg |
 | R29 | Larmor frequency at 0.5 T | 21.288739 MHz |
 | R30 | Swiss roll tuned exactly to f_L: mu_eff(f_L), Q | 1.000 + 52.81j, Q = 96.8 |
 | R31 | Best roll tuning f0/f_L, mu_eff(f_L), legacy heuristic SNR gain (E28, superseded by R49) | 1.01475, 17.367 + 5.701j, 4.745 |
@@ -144,6 +144,34 @@ At 0.5 T the design is therefore driven by field quality and size, not by coolin
 ![mechanics](figures/fig5_mechanics.png)
 *Figure 5. Left: Bitter current density J ∝ 1/r in the copper. Right: midplane hoop stress and Bz(r, z = 0).*
 
+### Why the optimum moved
+
+Until the soft Re penalty was introduced, the optimiser treated Re ≥ 10000 as a hard constraint. `results/archive/results_hard_re.json` keeps the results published with that formulation; the current ones use the soft penalty below Re = 5500. Same physics code, same DE settings (seed 1, maxiter 100, popsize 15).
+
+| quantity | earlier optimum (hard Re ≥ 10000) | current optimum (soft Re penalty) |
+|---|---|---|
+| R1 / R2 / L [mm] | 50.01 / 300.00 / 1102.0 | 50.01 / 299.89 / 1101.7 |
+| plate thickness / hole diameter [mm] | 5.990 / 5.915 | 5.994 / 5.226 |
+| hole pitch / D, number of holes | 7.962, 115 | 7.985, 129 |
+| water velocity [m/s] | 1.697 | 1.135 |
+| Reynolds number | 10068 | 5976 |
+| electrical / pump / total power [W] | 11703.7 / 81.0 / 11784.8 | 11705.4 / 26.6 / 11732.0 |
+| supply voltage [V] / current [A] | 4.543 / 2576.1 | 4.541 / 2577.9 |
+| hot-spot / mean copper temperature [°C] | 25.95 / 20.90 | 28.86 / 21.31 |
+| homogeneity over the 30 mm DSV [ppm] | 99.95 | 99.99 |
+| pressure drop [kPa] | 10.57 | 5.92 |
+| total water flow [L/min] | 321.8 | 188.5 |
+
+- **The Re handling is the whole cause.** Running the earlier formulation (the logic of `optimize.py` at commit `b061e03`, Re ≥ 10000 as a hard constraint) with today's code and the same DE settings returns the archived design vector bit for bit.
+- **Why a lower Re wins.** At the current optimum, slowing the water cuts pump power by 64.4 W per m/s, while the warmer copper raises the Joule losses (through ρ(T)) by only 46.0 W per m/s. So the optimiser lowers the flow until the Re floor stops it: at the hard floor before (Re = 10068), near the soft floor now.
+- **Why Re = 5976 and not exactly 5500.** The optimum sits in a very flat valley; how DE and the polish ended is described at the start of the Results section. Along the water velocity alone (the one variable that leaves the discrete hole layout unchanged), P_elec + P_pump + penalty falls by only 0.93 W (0.008 %) from this point to its lowest value, at Re = 5501. With seed 2 and seed 3 the same pipeline ends at Re = 5493 and 5649; all 3 totals lie within 2.8 W (0.02 %) of each other. Total power is resolved to that level; the exact Re inside this flat valley is not.
+
+The analysis is reproduced by `examples/run_re_investigation.py` (`results/re_investigation.json`).
+
+![re investigation](figures/fig12_re_investigation.png)
+*Figure 12. Left: change in pump power, Joule power and P_elec + P_pump + Re penalty when only the water velocity is varied at the current optimum. Right: the optima found by the earlier formulation and by the current optimiser with seeds 1–3.*
+
+
 ## Reproducing the results
 
 Every result in this README is rendered from `results/*.json` by `examples/make_docs.py`. The test suite runs `make_docs.py --check`, which fails if `README.md` or `DESIGN_SUMMARY.md` is out of date.
@@ -156,21 +184,22 @@ python examples/reproduce.py         # exit code 1 if any quantity does not matc
 
 It re-evaluates the published design vector (`results/results.json` → `optimiser.x`) with the current code, recomputes the quantities behind rows R1–R51 with the same calls as the scripts below, compares them with the stored JSON values (relative tolerance 1e-6; quantities that are round-off-level errors or quantised to a grid get a matching absolute tolerance), and redraws figures 1–5. CI runs it on every push.
 
-**Full regeneration.** These scripts overwrite the committed files under `results/` and `figures/`. `run_all.py` and `run_emulation.py` also rewrite `VALIDATION.md` and the report tables (`report/`, `docs/report/`), so compare with `git diff`. The runtimes are the ones recorded in the published runs, on 8 CPU threads.
+**Full regeneration.** These scripts overwrite the committed files under `results/` and `figures/`. `run_all.py` and `run_emulation.py` also rewrite `VALIDATION.md` and the report tables (`report/`, `docs/report/`), so compare with `git diff`. Runtimes are as recorded in each JSON output; they depend on the machine (CPU count in brackets where it was recorded).
 
 | README rows | script | writes | recorded runtime |
 |---|---|---|---|
-| R1–R40, figures 1–5 | `examples/run_all.py` | `results/results.json`, `results/validation.json`, `results/RESULTS.md`, `figures/fig1`–`fig5`, `VALIDATION.md`, report tables | optimiser 112 s; the whole script takes a few minutes |
-| R41–R51, figure 7 | `examples/run_fmri.py` | `results/fmri.json`, `figures/fig7_fmri.png` | 17 s |
+| R1–R40, figures 1–5 | `examples/run_all.py` | `results/results.json`, `results/validation.json`, `results/RESULTS.md`, `figures/fig1`–`fig5`, `VALIDATION.md`, report tables | optimiser 169 s (4 CPUs) |
+| R41–R51, figure 7 | `examples/run_fmri.py` | `results/fmri.json`, `figures/fig7_fmri.png` | 22 s (4 CPUs) |
 | R52–R56, figures 8–9 | `examples/run_particles.py` | `results/particles.json`, `figures/fig8_particles.png`, `figures/fig9_particle_convergence.png` | not recorded |
-| R57–R59, figure 10 | `examples/run_helical.py` | `results/helical.json`, `figures/fig10_helical.png` | 2 min |
-| R60–R61, figure 11 | `examples/run_head.py` | `results/head.json`, `figures/fig11_head.png` | 16 min |
-| mesoscopic emulation (around the blueprint initial guess) | `examples/run_emulation.py` | `results/emulation_compare.json`, `figures/fig6_emulation.png` (not committed), report tables | not recorded |
+| R57–R59, figure 10 | `examples/run_helical.py` | `results/helical.json`, `figures/fig10_helical.png` | 3 min (4 CPUs) |
+| R60–R61, figure 11 | `examples/run_head.py` | `results/head.json`, `figures/fig11_head.png` | 16 min, from an earlier run: not regenerated, because the head-preset optimiser uses neither `optimize.py` nor `results/results.json` |
+| mesoscopic emulation (around the blueprint initial guess) | `examples/run_emulation.py` | `results/emulation_compare.json`, `figures/fig6_emulation.png` (not committed), report tables | not recorded; not regenerated, because it does not use the optimum |
+| why the optimum moved, figure 12 | `examples/run_re_investigation.py` | `results/re_investigation.json`, `figures/fig12_re_investigation.png` | 7 min (4 CPUs) |
 | all rendered tables | `examples/make_docs.py` | `README.md`, `DESIGN_SUMMARY.md` | seconds |
 
 `run_fmri.py`, `run_particles.py` and `run_helical.py` read the published optimum from `results/results.json`; they do not rerun the optimiser. `run_particles.py`, `run_helical.py` and `run_head.py` accept `--quick` for a coarse smoke run whose numbers are not the published ones.
 
-**`run_all.py` does not reproduce the published optimum with the current code.** It reruns the optimiser (seed 1), and the published optimum was found by the earlier version with the hard Re ≥ 10000 constraint (see [Results](#results-published-design)). With the soft penalty the optimiser converges to a different design, so a full rerun changes the tables in this README, and the scripts that read `results/results.json` would then need rerunning too. Use `examples/reproduce.py` to check the published numbers against the current code.
+`run_all.py` reruns the same optimiser (seed 1) that produced the published optimum; rerun the scripts that read `results/results.json`, and `examples/run_re_investigation.py`, after it (`make_docs.py` refuses to render an investigation that belongs to a different optimum).
 
 ## fMRI layer: shims, head preset, B0 stability, RF SNR
 
@@ -178,21 +207,21 @@ It re-evaluates the published design vector (`results/results.json` → `optimis
 
 | ID | quantity | value |
 |---|---|---|
-| R41 | Zonal Z2 / Z4 over 30 mm DSV (ppm at DSV radius, unshimmed) | -66.609 / -0.0585 |
-| R42 | Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs | 99.95 -> 0.264 ppm / 177.74 -> 1.364 ppm |
-| R43 | Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed) | 40.0 mm, +-20.0 / +-60.0 mm, 1.91 / 38.90 A, 0.689 W |
-| R44 | Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21 | -2.220 / 0.0888 ppm |
+| R41 | Zonal Z2 / Z4 over 30 mm DSV (ppm at DSV radius, unshimmed) | -66.638 / -0.0586 |
+| R42 | Peak-to-peak over 30 mm / 40 mm DSV: unshimmed -> Z2+Z4 shim pairs | 99.99 -> 0.264 ppm / 177.82 -> 1.364 ppm |
+| R43 | Shim pairs: radius, z positions, NI, power (J = 2 A/mm^2 assumed) | 40.0 mm, +-20.0 / +-60.0 mm, 1.91 / 38.92 A, 0.690 W |
+| R44 | Tesseral terms from 0.5 mm offset + 1 mrad tilt (assumed tolerance): A11 / B21 | -2.221 / 0.0889 ppm |
 | R45 | Head preset (R1 = 190 mm, 200 mm DSV, <= 10 ppm after Z2/Z4; best on the old R2 <= 0.7 m grid, see R60 for the optimiser) | R2 700 mm, L 2600 mm, P 38.7 kW + pump 0.86 kW, 14.85 V, 2603 A, 31.5 t Cu, 1645 L/min, 1024 -> 9.92 ppm, T_hot 22.07 C (violates 8 V) |
 | R46 | Field drift vs copper temperature at fixed current (numeric, isotropic expansion) | -16.500 ppm/K |
-| R47 | B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total | 2.000 / 0.333 / 2.527 / 4.439 ppm (94.5 Hz at f_L); voltage-regulated total 601.9 ppm |
-| R48 | Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode) | 0.0606 / 2.54e-04 K ; 0.0459 / 1.93e-04 K |
+| R47 | B0 stability over 10 min, current-regulated PSU: ripple / drift / expansion / total | 2.000 / 0.333 / 2.129 / 4.041 ppm (86.0 Hz at f_L); voltage-regulated total 506.5 ppm |
+| R48 | Max copper dT / water oscillation amplitude for 1 ppm (current / voltage mode) | 0.0606 / 2.55e-04 K ; 0.0557 / 2.34e-04 K |
 | R49 | RF SNR, Swiss-roll slab vs same coil over air / vs coil on tissue (loss x50, best tuning f0/f_L) | 1.503 / 0.255 (f0/f_L = 1.0550, mu = 5.78 + 0.44j) |
 | R50 | RF SNR vs air for loss multiplier 1 / 10 / 50 | 3.231 / 2.366 / 1.503 |
 | R51 | RF resistances with slab: coil / tissue / slab | 0.0356 / 0.0359 / 0.1354 ohm |
 
 How to read these numbers:
 - **Shims.** Two thin-loop pairs inside the bore cancel Z2 and Z4. What is left is mostly Z6.
-- **Head preset.** It sits at the upper end of the R2 grid in `head_preset()`, so it is not a converged optimum. The design is heavy and needs more than the 8 V supply. A copper-cost figure appears only when you pass a price: `head_preset(copper_usd_per_kg=...)`.
+- **Head preset.** It sits at the upper end of the R2 grid in `head_preset()`, so it is not a converged optimum. Its cooling and plate parameters are those of the earlier hard-Re optimum, kept fixed so the grid result stays comparable. The design is heavy and needs more than the 8 V supply. A copper-cost figure appears only when you pass a price: `head_preset(copper_usd_per_kg=...)`.
 - **Stability.** At fixed current, B falls with copper temperature by the R46 coefficient (thermal expansion). A voltage-regulated supply adds the copper resistance coefficient on top, which gives the voltage-mode total in R47. So the magnet needs a current-regulated supply and chiller water held within the R48 amplitude.
 - **RF.** This model is quasi-static: a surface loop, a laterally infinite uniaxial Swiss-roll slab, and a conducting half-space for the tissue. The roll array improves on the same coil held off over an air gap. It does not beat putting the coil straight on the tissue. The old E28 heuristic (R31) overstated the gain.
 - **Helical path.** Tesseral terms from the helical current path are computed in the 'Helical current path' section below.
@@ -207,52 +236,52 @@ How to read these numbers:
 - **P2, conduction carriers.** 1000000 classical carriers follow an exact Ornstein–Uhlenbeck velocity process with relaxation time τ(T). The Einstein (Green–Kubo) relation σ = n e² D / (kT) turns this into ρ. τ(T) comes from a Bloch–Grüneisen lattice model (Θ_R = 343 K and RRR = 100, both assumptions) calibrated to ρ(20 °C) = 1.68e-8 Ω m. The continuum uses a linear ρ(T).
 - **P3, heat walkers.** 100000 2-D Bessel random walks run from the hot cell's edge to the cooling-hole wall. Feynman–Kac turns their mean exit time into the conduction rise. Continuum counterpart: E18.
 
-**Parallelism.** All kernels use Numba `prange`. Each particle owns a counter-based random stream (splitmix64 keyed by seed and index), and reductions are summed serially in fixed chunks. As a result, serial and parallel runs are bit-identical, and the run script checks this with `np.array_equal`. `emulate(..., workers=n)` draws every random number first, then evaluates the tolerance realizations in a spawn process pool, so its output is identical for any worker count. Each realization takes 6.0 ms serially, so process start-up dominates at this size (measured speedup in the last row below). The particle kernels are where the parallel speedup lives.
+**Parallelism.** All kernels use Numba `prange`. Each particle owns a counter-based random stream (splitmix64 keyed by seed and index), and reductions are summed serially in fixed chunks. As a result, serial and parallel runs are bit-identical, and the run script checks this with `np.array_equal`. `emulate(..., workers=n)` draws every random number first, then evaluates the tolerance realizations in a spawn process pool, so its output is identical for any worker count. Each realization takes 10.2 ms serially, so process start-up dominates at this size (measured speedup in the last row below). The particle kernels are where the parallel speedup lives.
 
 | kernel | N | serial [s] | parallel [s] | speedup | identical |
 |---|---|---|---|---|---|
-| P1 current elements (Biot-Savart, 404 DSV points) | 16384 | 4.908 | 0.747 | 6.57x | yes |
-| P1 moments (NI, P) | 4194304 | 0.069 | 0.014 | 4.84x | yes |
-| P2 carriers (Green-Kubo) | 200000 | 10.784 | 1.425 | 7.57x | yes |
-| P3 heat walkers (Feynman-Kac) | 40000 | 17.629 | 2.223 | 7.93x | yes |
-| emulate() tolerance MC, 8 processes | 2000 | 11.967 | 12.109 | 0.99x | yes |
+| P1 current elements (Biot-Savart, 404 DSV points) | 16384 | 4.553 | 1.195 | 3.81x | yes |
+| P1 moments (NI, P) | 4194304 | 0.089 | 0.015 | 6.08x | yes |
+| P2 carriers (Green-Kubo) | 200000 | 10.054 | 2.688 | 3.74x | yes |
+| P3 heat walkers (Feynman-Kac) | 40000 | 17.179 | 4.214 | 4.08x | yes |
+| emulate() tolerance MC, 8 processes | 2000 | 20.499 | 21.119 | 0.97x | yes |
 
 | quantity | continuum | particle | rel. difference | stat. error (1 sigma) | expected |
 |---|---|---|---|---|---|
-| Isocentre field B0 [T] | 0.5 | 0.5 | +2.05e-09 | 0 (deterministic) | agree |
-| Bz on axis at z = 0.275 m (L/4) [T] | 0.484516 | 0.484541 | +5.14e-05 | - | agree |
+| Isocentre field B0 [T] | 0.5 | 0.5 | +2.29e-09 | 0 (deterministic) | agree |
+| Bz on axis at z = 0.275 m (L/4) [T] | 0.484516 | 0.484541 | +5.12e-05 | - | agree |
 | Bz on axis at coil end z = L/2 [T] | 0.256869 | 0.256704 | -6.42e-04 | - | agree (slow MC) |
-| Homogeneity over 30 mm DSV [ppm] | 99.9502 | 99.7344 | -2.16e-03 | - | agree (needs ~1e-7 rel. accuracy) |
-| Ampere-turns NI [A] | 454948 | 454949 | +2.77e-07 | - | agree |
-| Current I = NI / n_turns [A] | 2576.14 | 2576.14 | +2.77e-07 | - | agree |
-| Resistance (rho at mean Cu T) [ohm] | 0.00176354 | 0.00176354 | -2.77e-07 | - | agree |
-| Supply voltage [V] | 4.54313 | 4.54313 | +0.00e+00 | - | agree |
-| Joule power (rho at mean Cu T) [W] | 11703.7 | 11703.8 | +2.77e-07 | - | agree |
-| Resistivity at mean Cu T (20.901 C), carriers + Bloch-Gruneisen [ohm m] | 1.68595e-08 | 1.68738e-08 | +8.49e-04 | 1.41e-03 | differ (model) |
-| Bloch-Gruneisen rho at mean Cu T (model value, no sampling noise) [ohm m] | 1.68595e-08 | 1.68587e-08 | -4.76e-05 | 0 (deterministic) | differ (model) |
+| Homogeneity over 30 mm DSV [ppm] | 99.9942 | 99.7784 | -2.16e-03 | - | agree (needs ~1e-7 rel. accuracy) |
+| Ampere-turns NI [A] | 454848 | 454848 | +2.77e-07 | - | agree |
+| Current I = NI / n_turns [A] | 2577.93 | 2577.93 | +2.77e-07 | - | agree |
+| Resistance (rho at mean Cu T) [ohm] | 0.00176134 | 0.00176134 | -2.77e-07 | - | agree |
+| Supply voltage [V] | 4.54062 | 4.54062 | -1.96e-16 | - | agree |
+| Joule power (rho at mean Cu T) [W] | 11705.4 | 11705.4 | +2.77e-07 | - | agree |
+| Resistivity at mean Cu T (21.313 C), carriers + Bloch-Gruneisen [ohm m] | 1.68867e-08 | 1.69006e-08 | +8.27e-04 | 1.41e-03 | differ (model) |
+| Bloch-Gruneisen rho at mean Cu T (model value, no sampling noise) [ohm m] | 1.68867e-08 | 1.68855e-08 | -6.97e-05 | 0 (deterministic) | differ (model) |
 | rho at 85 C (trip limit): Bloch-Gruneisen vs linear [ohm m] | 2.10916e-08 | 2.0993e-08 | -4.67e-03 | 0 (deterministic) | differ (model) |
-| Joule power with carrier resistivity [W] | 11703.7 | 11713.7 | +8.49e-04 | 1.41e-03 | differ (model) |
+| Joule power with carrier resistivity [W] | 11705.4 | 11715.1 | +8.27e-04 | 1.41e-03 | differ (model) |
 | d(rho)/dT / rho20 at 20 C [1/K] | 0.00393 | 0.00387752 | -1.34e-02 | 0 (deterministic) | differ (model) |
-| Hot-cell conduction rise (same q_v) [K] | 0.675091 | 0.674711 | -5.62e-04 | 2.86e-03 | agree |
-| Hot-spot copper temperature (carrier rho + walkers) [C] | 25.9455 | 25.946 | +1.63e-05 | - | differ slightly (model) |
-| Hot-spot copper temperature (Bloch-Gruneisen rho, walkers) [C] | 25.9455 | 25.9431 | -9.19e-05 | - | differ slightly (model) |
+| Hot-cell conduction rise (same q_v) [K] | 0.645493 | 0.645072 | -6.51e-04 | 2.87e-03 | agree |
+| Hot-spot copper temperature (carrier rho + walkers) [C] | 28.8596 | 28.8588 | -2.88e-05 | - | differ slightly (model) |
+| Hot-spot copper temperature (Bloch-Gruneisen rho, walkers) [C] | 28.8596 | 28.8546 | -1.74e-04 | - | differ slightly (model) |
 
 | ID | quantity | value |
 |---|---|---|
-| R52 | Particle emulation: speedup on 8 threads (field / carriers / walkers), serial == parallel bit-identical | 6.57x / 7.57x / 7.93x, yes |
-| R53 | Particle vs continuum: B0, P (relative difference) | 2.05e-09 / 2.77e-07 |
-| R54 | Particle vs continuum: DSV homogeneity | 99.73 ppm vs 99.95 ppm |
-| R55 | Carrier (Bloch-Gruneisen) vs linear resistivity at mean Cu T | +0.085 % (+/- 0.141 % stat.) |
-| R56 | Hot-spot copper T: particle / continuum | 25.946 / 25.946 C |
+| R52 | Particle emulation: speedup on 4 threads (field / carriers / walkers), serial == parallel bit-identical | 3.81x / 3.74x / 4.08x, yes |
+| R53 | Particle vs continuum: B0, P (relative difference) | 2.29e-09 / 2.77e-07 |
+| R54 | Particle vs continuum: DSV homogeneity | 99.78 ppm vs 99.99 ppm |
+| R55 | Carrier (Bloch-Gruneisen) vs linear resistivity at mean Cu T | +0.083 % (+/- 0.141 % stat.) |
+| R56 | Hot-spot copper T: particle / continuum | 28.859 / 28.860 C |
 
 **Where they must agree, and where they should not:**
 - **Agree to estimator error** (same equations, different numerical method): B on the axis, NI, I, R, V, P at the same ρ, and the conduction rise at the same heat source.
-  - B0 at the isocentre agrees exactly, by construction. The P1 sampling density equals the E4 integrand, so that estimator has zero variance. B0 is therefore an implementation check, not an independent test. The residual 2.0e-09 is the loop model's own quadrature error against E4. The independent tests are the off-centre axis points and the DSV.
+  - B0 at the isocentre agrees exactly, by construction. The P1 sampling density equals the E4 integrand, so that estimator has zero variance. B0 is therefore an implementation check, not an independent test. The residual 2.3e-09 is the loop model's own quadrature error against E4. The independent tests are the off-centre axis points and the DSV.
   - The axis error is largest near the coil ends: 1.4e-04 max for |z| ≤ 0.4 L, and 6.4e-04 including the ends. That is where the importance density is worst.
   - V = P / I, so the shared ⟨1/r⟩ error cancels in V.
-- **Homogeneity.** The ppm figure needs about 1e-7 relative field accuracy, so it converges slowly with N (fig9). The continuum reference is the loop model evaluated on the same 404 points (99.95 ppm; R15 reports 99.95 ppm).
+- **Homogeneity.** The ppm figure needs about 1e-7 relative field accuracy, so it converges slowly with N (fig9). The continuum reference is the loop model evaluated on the same 404 points (99.99 ppm; R15 reports 99.99 ppm).
 - **Should differ (different physics):**
-  - ρ(T). The Bloch–Grüneisen slope at 20 °C differs from the linear α = 0.00393 1/K. The power and hot-spot temperature differ accordingly. Between 21 and 26 °C the model gap is small (-4.8e-05 at the mean Cu temperature), smaller than the 1e6-carrier sampling error (1.4e-03). It grows to -0.47 % at the 85 °C trip limit.
+  - ρ(T). The Bloch–Grüneisen slope at 20 °C differs from the linear α = 0.00393 1/K. The power and hot-spot temperature differ accordingly. Between the mean copper temperature (21.3 °C) and the hot spot (28.9 °C) the model gap is small (-7.0e-05 at the mean Cu temperature), smaller than the 1000000-carrier sampling error (1.4e-03). It grows to -0.47 % at the 85 °C trip limit.
   - The emulated hot spot still takes the water rise and film drop from the continuum correlations, rescaled by the carrier ρ. Only conduction and resistivity come from particles.
 - **Continuum contact resistance:** optional per-interface `R_c_ohm` (default 0) enters R, V, P and overlap-sector heat; V headroom is reported as max R_c/interface. Emulation still samples log-normal contacts.
 - **Neither model includes:** a full Florida-Bitter elongated/staggered plate, or a turbulence-resolving CFD channel model. Classical carriers reproduce Drude σ under the relaxation-time approximation. Quantum (Fermi–Dirac) statistics change v_F and the mean free path, not σ.
@@ -264,7 +293,7 @@ How to read these numbers:
 
 `examples/run_helical.py` writes `results/helical.json` and `figures/fig10_helical.png`. It uses the straight-segment Biot–Savart engine (`biot_savart.py`) and the path builder in `helical.py` to model the real Bitter current path for the seed-1 optimum. All geometry inputs below are assumptions:
 
-- 177 flat plates, each carrying one turn with J = C/r across the plate, discretised into 96 radial filaments.
+- 176 flat plates, each carrying one turn with J = C/r across the plate, discretised into 96 radial filaments.
 - A 30° overlap sector in which the current crosses to the next plate. In the model the crossing is a linear ramp in z over that sector.
 - The circuit is closed by a return bus: radial leads at both ends and one axial bus at r = 350 mm.
 
@@ -276,37 +305,37 @@ Three path variants are compared with the ideal axisymmetric coil:
 | aligned | flat plates with every slit in one angular column |
 | rotating | flat plates with each slit advanced by the overlap angle, plate to plate |
 
-The rotating stack carries more than one turn per plate. Its current is rescaled by 0.9226 so that B0 is unchanged, and the same rescaling (≈1 for the other variants) is applied throughout.
+The rotating stack carries more than one turn per plate. Its current is rescaled by 0.9237 so that B0 is unchanged, and the same rescaling (≈1 for the other variants) is applied throughout.
 
 **Method.**
 - The helical error is dB = B(path) − B(planar rings on the same mesh), added to the converged loop model. Mesh error therefore cancels.
 - The table reports the spherical harmonics of |B|, which is what the spins see. To first order |B| = Bz + B_perp²/(2 B0), so the transverse field enters too.
-- Radial discretisation was checked at 48 vs 96 filaments (second-order convergence). The largest Richardson error estimate on any tesseral coefficient is 1.87 ppm overall and 0.016 ppm for the aligned stack.
+- Radial discretisation was checked at 48 vs 96 filaments (second-order convergence). The largest Richardson error estimate on any tesseral coefficient is 1.95 ppm overall and 0.016 ppm for the aligned stack.
 - The ladder below nulls whole harmonic orders cumulatively with ideal shims. The orders "needed" come from the shortest prefix of the ladder that brings the coil within 1 ppm of the ideal coil's Z2/Z4-shimmed value (an assumed budget). Within that prefix, only orders whose step lowers p-p by at least 0.1 ppm are listed. "Terms ≥ 1 ppm" lists the individual coefficients at or above 1 ppm.
 
 | DSV | path variant | p-p unshimmed | p-p after Z2/Z4 pairs | largest tesseral terms of abs(B) [ppm at r0] | max B_perp total / helical part [uT] | ideal shims needed (ladder) | terms >= 1 ppm |
 |---|---|---|---|---|---|---|---|
-| 30 mm | ideal | 99.95 | 0.26 | - | 17 / 0 | - | - |
-| 30 mm | uniform | 100.46 | 1.72 | B21 +0.50, A11 +0.48 | 1786 / 1786 | X, Y, ZX, ZY | none |
-| 30 mm | aligned | 126.19 | 34.42 | A11 +14.90, B11 -3.11, A22 +0.65, B21 +0.31 | 4117 / 4117 | Z, X, Y, X2-Y2, XY, n=3 | X, Y |
-| 30 mm | rotating | 1300.60 | 1299.77 | B11 +516.49, A21 -224.68, A11 -138.22, B31 -70.94 | 1790 / 1777 | not reached with n <= 4 | Y, ZX, X, Z2Y, ZY, Z2X, Z3X, Z3Y, B51, X2-Y2, XY, ZXY, A51 |
-| 40 mm | ideal | 177.74 | 1.36 | - | 30 / 0 | - | - |
-| 40 mm | uniform | 178.44 | 3.49 | B21 +0.89, A11 +0.64, A22 +0.01 | 1810 / 1810 | X, Y, ZX, ZY | none |
-| 40 mm | aligned | 215.24 | 47.85 | A11 +20.25, B11 -4.23, A22 +1.19, B21 +0.56 | 4545 / 4544 | Z, X, Y, X2-Y2, XY, n=3 | X, Y, X2-Y2 |
-| 40 mm | rotating | 2009.08 | 2008.13 | B11 +688.67, A21 -399.42, A11 -184.29, B31 -168.16 | 1926 / 1909 | not reached with n <= 4 | Y, ZX, X, Z2Y, ZY, Z3X, Z2X, B51, Z3Y, A51, X2-Y2, A61, ZXY, XY, A42, Z(X2-Y2), B61 |
+| 30 mm | ideal | 99.99 | 0.26 | - | 17 / 0 | - | - |
+| 30 mm | uniform | 100.51 | 1.73 | B21 +0.50, A11 +0.49 | 1797 / 1797 | X, Y, ZX, ZY | none |
+| 30 mm | aligned | 126.47 | 34.71 | A11 +15.03, B11 -3.13, A22 +0.66, B21 +0.32 | 4140 / 4140 | Z, X, Y, X2-Y2, XY, n=3 | X, Y |
+| 30 mm | rotating | 1325.35 | 1324.25 | B11 +546.36, A21 -236.58, B31 -74.24, A41 +18.62 | 1771 / 1756 | not reached with n <= 4 | Y, ZX, Z2Y, Z3X, B51, X2-Y2, ZXY |
+| 40 mm | ideal | 177.82 | 1.36 | - | 30 / 0 | - | - |
+| 40 mm | uniform | 178.53 | 3.50 | B21 +0.89, A11 +0.65, A22 +0.01 | 1821 / 1821 | X, Y, ZX, ZY | none |
+| 40 mm | aligned | 215.66 | 48.27 | A11 +20.43, B11 -4.27, A22 +1.20, B21 +0.56 | 4570 / 4569 | Z, X, Y, X2-Y2, XY, n=3 | X, Y, X2-Y2 |
+| 40 mm | rotating | 2044.41 | 2043.15 | B11 +728.50, A21 -420.59, B31 -175.98, A41 +58.85 | 1911 / 1888 | not reached with n <= 4 | Y, ZX, Z2Y, Z3X, B51, X2-Y2, A61, ZXY, A42 |
 
 Peak-to-peak |B| [ppm] along the shim ladder:
 
 | step | ideal 30 mm | uniform 30 mm | aligned 30 mm | rotating 30 mm | ideal 40 mm | uniform 40 mm | aligned 40 mm | rotating 40 mm |
 |---|---|---|---|---|---|---|---|---|
-| unshimmed | 99.95 | 100.46 | 126.19 | 1300.60 | 177.74 | 178.44 | 215.24 | 2009.08 |
-| Z2/Z4 shim pairs (currents solved on the ideal coil) | 0.26 | 1.72 | 34.42 | 1299.77 | 1.36 | 3.49 | 47.85 | 2008.13 |
-| + retune Z1, Z2, Z4 | 0.26 | 1.71 | 31.44 | 1300.41 | 1.36 | 3.48 | 44.09 | 2009.04 |
-| + X, Y | 0.26 | 1.55 | 4.97 | 714.16 | 1.36 | 3.28 | 9.66 | 1304.68 |
-| + ZX, ZY | 0.26 | 0.27 | 4.89 | 299.14 | 1.36 | 1.38 | 9.63 | 707.34 |
-| + X2-Y2, XY | 0.26 | 0.27 | 1.36 | 299.70 | 1.36 | 1.38 | 3.06 | 708.05 |
-| + all n = 3 tesseral | 0.26 | 0.26 | 0.95 | 95.83 | 1.36 | 1.36 | 2.30 | 296.25 |
-| + all n = 4 tesseral | 0.26 | 0.26 | 0.95 | 24.88 | 1.36 | 1.36 | 2.30 | 103.40 |
+| unshimmed | 99.99 | 100.51 | 126.47 | 1325.35 | 177.82 | 178.53 | 215.66 | 2044.41 |
+| Z2/Z4 shim pairs (currents solved on the ideal coil) | 0.26 | 1.73 | 34.71 | 1324.25 | 1.36 | 3.50 | 48.27 | 2043.15 |
+| + retune Z1, Z2, Z4 | 0.26 | 1.72 | 31.73 | 1322.54 | 1.36 | 3.50 | 44.50 | 2039.98 |
+| + X, Y | 0.26 | 1.56 | 5.03 | 723.03 | 1.36 | 3.30 | 9.77 | 1331.62 |
+| + ZX, ZY | 0.26 | 0.27 | 4.95 | 299.36 | 1.36 | 1.38 | 9.73 | 711.51 |
+| + X2-Y2, XY | 0.26 | 0.27 | 1.38 | 299.80 | 1.36 | 1.38 | 3.09 | 713.06 |
+| + all n = 3 tesseral | 0.26 | 0.26 | 0.95 | 95.49 | 1.36 | 1.36 | 2.32 | 301.97 |
+| + all n = 4 tesseral | 0.26 | 0.26 | 0.95 | 25.87 | 1.36 | 1.36 | 2.32 | 107.45 |
 
 **What this shows:**
 - The Z2/Z4 pairs only remove zonal terms. The helical errors are mostly tesseral.
@@ -346,9 +375,9 @@ How to read it:
 
 | ID | quantity | value |
 |---|---|---|
-| R57 | Helical path, 30 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform helix / aligned slits / rotating slits | 0.26 / 1.72 / 34.42 / 1299.77 ppm |
-| R58 | Helical path, 40 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform / aligned / rotating | 1.36 / 3.49 / 47.85 / 2008.13 ppm |
-| R59 | Aligned slits, 30 mm DSV: X / Y terms of abs(B); max transverse field (total, with return bus) | 14.90 / -3.11 ppm; 4117 uT |
+| R57 | Helical path, 30 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform helix / aligned slits / rotating slits | 0.26 / 1.73 / 34.71 / 1324.25 ppm |
+| R58 | Helical path, 40 mm DSV, p-p after Z2/Z4 pairs: ideal / uniform / aligned / rotating | 1.36 / 3.50 / 48.27 / 2043.15 ppm |
+| R59 | Aligned slits, 30 mm DSV: X / Y terms of abs(B); max transverse field (total, with return bus) | 15.03 / -3.13 ppm; 4140 uT |
 | R60 | Head preset optimum (DE, best of seeds 1-3, V <= 8 V): R2, L, plate, total power, V, Cu mass | 1474 mm, 3182 mm, 19.88 mm, 33.19 kW, 3.612 V, 186.8 t (seed spread in power 1.38 %) |
 | R61 | Head preset: minimum achievable supply voltage (other constraints kept) | 3.571 V (R2 at upper bound, d_plate at upper bound) |
 
