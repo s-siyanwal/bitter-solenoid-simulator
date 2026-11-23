@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import scipy, numba, matplotlib
 from bittersim import evaluate_design, BitterDesign, swissroll, mechanics, inductance, validation
-from bittersim.optimize import optimise, LIMITS, BOUNDS
+from bittersim.optimize import optimise, BOUNDS
 from bittersim import plotting
 
 FIG = os.path.join(ROOT, "figures"); RES = os.path.join(ROOT, "results")
@@ -49,7 +49,8 @@ print("environment", env)
 
 baseline = evaluate_design(BitterDesign())                    # PDF initial guess
 t = time.time()
-opt = optimise(seed=1, maxiter=100, popsize=15)
+SEED, MAXITER, POPSIZE = 1, 100, 15
+opt = optimise(seed=SEED, maxiter=MAXITER, popsize=POPSIZE)
 t_opt = time.time() - t
 best = opt["result"]
 print("optimisation done in %.1f s (%s)" % (t_opt, opt["method"]))
@@ -82,7 +83,11 @@ extra.update(tr)
 val = validation.run_all(best)
 json.dump(clean({"env": env, "baseline_pdf_initial_guess": baseline, "optimal": best, "extra": extra,
                  "optimiser": {"method": opt["method"], "x": opt["x"], "constraints_g": opt["constraints"],
-                               "de_nfev": opt["de_nfev"], "seconds": t_opt, "limits": LIMITS, "bounds": BOUNDS}}),
+                               "correlation_penalty": opt["correlation_penalty"],
+                               "seed": SEED, "maxiter": MAXITER, "popsize": POPSIZE,
+                               "de_nfev": opt["de_nfev"], "de_nit": opt["de_nit"], "de_success": opt["de_success"],
+                               "de_message": opt["de_message"], "polish": opt["polish"],
+                               "seconds": t_opt, "limits": opt["limits"], "bounds": BOUNDS}}),
           open(os.path.join(RES, "results.json"), "w"), indent=1)
 json.dump(clean(val), open(os.path.join(RES, "validation.json"), "w"), indent=1)
 

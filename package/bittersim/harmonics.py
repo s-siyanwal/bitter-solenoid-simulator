@@ -185,8 +185,9 @@ HEAD = dict(R1=0.19, dsv=0.20, ppm_target=10.0)   # ASSUMPTION: 380 mm clear bor
 def head_preset(R2_grid=None, L_grid=None, cooling=None, copper_usd_per_kg=None, usd_per_kWh=None):
     """Grid search (R2, L) at R1 = 0.19 m for the lowest electrical power whose Z2/Z4-shimmed
     homogeneity over a 200 mm DSV meets HEAD['ppm_target'] and whose hot spot stays <= 85 C.
-    Cooling and plate parameters default to the seed-1 optimum. Costs are only reported when a
-    price is passed in (no built-in prices)."""
+    Cooling and plate parameters default to those of the earlier seed-1 optimum found with the
+    hard Re >= 1e4 constraint (results/archive/results_hard_re.json), kept fixed so this grid
+    result stays comparable. Costs are only reported when a price is passed in (no built-in prices)."""
     from .design import BitterDesign, evaluate_design
     R2_grid = np.linspace(0.30, 0.70, 9) if R2_grid is None else R2_grid
     L_grid = np.linspace(1.0, 3.0, 11) if L_grid is None else L_grid
